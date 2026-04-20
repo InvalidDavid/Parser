@@ -75,7 +75,7 @@ const healthScore = computed(() => {
 
 onMounted(async () => {
   try {
-    const response = await fetch('/data/sources.json', { cache: 'no-store' })
+    const response = await fetch(`${import.meta.env.BASE_URL}data/sources.json`, { cache: 'no-store' })
     if (!response.ok) {
       throw new Error(`Dataset request failed with ${response.status}`)
     }
@@ -98,10 +98,12 @@ onMounted(async () => {
 
     <header class="hero card">
       <div class="hero__copy">
-        <p class="hero__eyebrow">Source dashboard</p>
-        <h1>Tracking Site for parsers sources.</h1>
+        <p class="hero__eyebrow">Kotatsu source dashboard</p>
+        <h1>Fresh Vue/Vite site for tracking parser sources and health.</h1>
         <p class="hero__text">
-          Directory only. No manga content is hosted, cached, or proxied here. Visiting a source's site from a card takes you to the third-party site directly. 
+          This build follows the upstream catalog pattern instead of faking live parser verification. It
+          generates a static JSON snapshot from the YakaTeam parser source annotations and ships that file
+          with the site for fast loading.
         </p>
         <div class="hero__actions">
           <a class="button button--primary" href="https://github.com/YakaTeam/kotatsu-parsers" target="_blank" rel="noreferrer">
@@ -144,17 +146,17 @@ onMounted(async () => {
       <MetricCard
         label="Working"
         :value="formatNumber(dataset.summary.working)"
-        hint="Those working ones"
+        hint="Not marked @Broken upstream"
       />
       <MetricCard
         label="Broken"
         :value="formatNumber(dataset.summary.broken)"
-        hint="Network failures or dead endpoints"
+        hint="Marked @Broken upstream"
       />
       <MetricCard
         label="Blocked / unknown"
         :value="formatNumber(dataset.summary.blocked + dataset.summary.unknown)"
-        hint="Wrong domain, anti-bot, cloud security, no access"
+        hint="Unused in catalog mode"
       />
     </section>
 
