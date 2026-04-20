@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useVirtualizer } from '@tanstack/vue-virtual'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import MetricCard from '@/components/MetricCard.vue'
 import SourceCard from '@/components/SourceCard.vue'
 
@@ -14,16 +13,17 @@ const error = ref<string | null>(null)
 
 const rawQuery = ref('')
 const query = ref('')
+
 const status = ref<'all' | SourceStatus>('all')
 const language = ref('all')
 const contentType = ref('all')
 const nsfw = ref<'all' | 'safe' | 'nsfw'>('all')
 const sort = ref<'title' | 'language' | 'status' | 'domains'>('status')
 const view = ref<'grid' | 'list'>('grid')
-const isAnimatingView = ref(false)
 
-const forceListThreshold = 240
-const virtualizeThreshold = 80
+const page = ref(1)
+const perPage = ref(50)
+const perPageOptions = [25, 50, 100, 200]
 
 const LANGUAGE_NAMES: Record<string, string> = {
   en: 'English',
@@ -56,51 +56,25 @@ const statusOrder: Record<SourceStatus, number> = {
 }
 
 let searchDebounce: number | undefined
-let viewAnimationTimer: number | undefined
 
-watch(rawQuery, (value) => {
-  window.clearTimeout(searchDebounce)
-  searchDebounce = window.setTimeout(() => {
-    query.value = value.trim().toLowerCase()
-  }, 140)
-})
-
-function setView(next: 'grid' | 'list') {
-  if (next === 'grid' && isGridLocked.value) return
-  if (view.value === next) return
-
-  isAnimatingView.value = true
-  view.value = next
-
-  window.clearTimeout(viewAnimationTimer)
-  viewAnimationTimer = window.setTimeout(() => {
-    isAnimatingView.value = false
-  }, 180)
+function getLanguageLabel(source: SourceItem): string {
+  return source.languageName || LANGUAGE_NAMES[source.language] || source.language.toUpperCase()
 }
 
-function withSearchText(source: SourceItem): SourceItem {
-  const languageName =
-    source.languageName || LANGUAGE_NAMES[source.language] || source.language.toUpperCase()
-
-  return {
-    ...source,
-    languageName,
-    searchText:
-      source.searchText ||
-      [
-        source.title,
-        source.key,
-        source.language,
-        languageName,
-        source.engine ?? '',
-        source.contentType ?? '',
-        source.path,
-        source.brokenReason ?? '',
-        ...(source.domains ?? []),
-      ]
-        .join(' ')
-        .toLowerCase(),
-  }
+function buildSearchText(source: SourceItem): string {
+  return [
+    source.title,
+    source.key,
+    source.language,
+    getLanguageLabel(source),
+    source.engine ?? '',
+    source.contentType ?? '',
+    source.path,
+    source.brokenReason ?? '',
+    ...(source.domains ?? []),
+  ]
+    .join(' ')
+    .toLowerCase()
 }
 
 function normalizeDataset(next: SourceDataset): SourceDataset {
@@ -116,8 +90,22 @@ function normalizeDataset(next: SourceDataset): SourceDataset {
         next.summary.nsfw ??
         next.sources.reduce((count, source) => count + (source.nsfw ? 1 : 0), 0),
     },
-    sources: next.sources.map(withSearchText),
   }
+}
+
+watch(rawQuery, (value) => {
+  window.clearTimeout(searchDebounce)
+  searchDebounce = window.setTimeout(() => {
+    query.value = value.trim().toLowerCase()
+  }, 120)
+})
+
+watch([query, status, language, contentType, nsfw, sort, perPage], () => {
+  page.value = 1
+})
+
+function setView(next: 'grid' | 'list') {
+  view.value = next
 }
 
 const languages = computed(() => {
@@ -125,10 +113,7 @@ const languages = computed(() => {
 
   for (const source of dataset.value.sources) {
     if (!source.language) continue
-    values.set(
-      source.language,
-      source.languageName || LANGUAGE_NAMES[source.language] || source.language.toUpperCase(),
-    )
+    values.set(source.language, getLanguageLabel(source))
   }
 
   return [
@@ -145,15 +130,13 @@ const contentTypes = computed(() => {
 })
 
 const topLocales = computed(() => {
-  const localeSummary = dataset.value.byLocale ?? {}
-  return Object.entries(localeSummary)
+  return Object.entries(dataset.value.byLocale ?? {})
     .sort((left, right) => right[1] - left[1])
     .slice(0, 8)
 })
 
 const topTypes = computed(() => {
-  const typeSummary = dataset.value.byType ?? {}
-  return Object.entries(typeSummary)
+  return Object.entries(dataset.value.byType ?? {})
     .sort((left, right) => right[1] - left[1])
     .slice(0, 6)
 })
@@ -170,7 +153,7 @@ const filteredSources = computed<SourceItem[]>(() => {
       (nsfw.value === 'nsfw' && !!source.nsfw) ||
       (nsfw.value === 'safe' && !source.nsfw)
 
-    const matchesQuery = !query.value || (source.searchText?.includes(query.value) ?? false)
+    const matchesQuery = !query.value || buildSearchText(source).includes(query.value)
 
     return matchesStatus && matchesLanguage && matchesType && matchesNsfw && matchesQuery
   })
@@ -180,28 +163,31 @@ const filteredSources = computed<SourceItem[]>(() => {
       case 'title':
         return left.title.localeCompare(right.title)
       case 'language':
-        return (
-          (left.languageName || left.language).localeCompare(right.languageName || right.language) ||
-          left.title.localeCompare(right.title)
-        )
+        return getLanguageLabel(left).localeCompare(getLanguageLabel(right)) || left.title.localeCompare(right.title)
       case 'domains':
-        return right.domains.length - left.domains.length || left.title.localeCompare(right.title)
+        return (right.domains?.length ?? 0) - (left.domains?.length ?? 0) || left.title.localeCompare(right.title)
       case 'status':
       default:
-        return (
-          statusOrder[left.health.status] - statusOrder[right.health.status] ||
-          left.title.localeCompare(right.title)
-        )
+        return statusOrder[left.health.status] - statusOrder[right.health.status] || left.title.localeCompare(right.title)
     }
   })
 })
 
-const isGridLocked = computed(() => filteredSources.value.length > forceListThreshold)
-const effectiveView = computed<'grid' | 'list'>(() => (isGridLocked.value ? 'list' : view.value))
-const shouldAnimateView = computed(() => filteredSources.value.length < 50)
-const shouldVirtualize = computed(
-  () => effectiveView.value === 'list' && filteredSources.value.length > virtualizeThreshold,
-)
+const totalPages = computed(() => Math.max(1, Math.ceil(filteredSources.value.length / perPage.value)))
+
+const paginatedSources = computed<SourceItem[]>(() => {
+  const start = (page.value - 1) * perPage.value
+  return filteredSources.value.slice(start, start + perPage.value)
+})
+
+const canGoPrev = computed(() => page.value > 1)
+const canGoNext = computed(() => page.value < totalPages.value)
+
+watch(totalPages, (nextTotal) => {
+  if (page.value > nextTotal) {
+    page.value = nextTotal
+  }
+})
 
 const qualityScore = computed(() => {
   const total = dataset.value.summary.total || dataset.value.sources.length
@@ -227,48 +213,13 @@ function resetFilters() {
   contentType.value = 'all'
   nsfw.value = 'all'
   sort.value = 'status'
+  page.value = 1
+  perPage.value = 50
 }
 
-const listViewportRef = ref<HTMLElement | null>(null)
-
-const rowVirtualizerOptions = computed(() => ({
-  count: filteredSources.value.length,
-  getScrollElement: () => listViewportRef.value,
-  estimateSize: () => 220,
-  overscan: 8,
-  getItemKey: (index: number) => filteredSources.value[index]?.id ?? index,
-}))
-
-const rowVirtualizer = useVirtualizer(rowVirtualizerOptions)
-const virtualRows = computed(() => (shouldVirtualize.value ? rowVirtualizer.value.getVirtualItems() : []))
-const totalSize = computed(() => (shouldVirtualize.value ? rowVirtualizer.value.getTotalSize() : 0))
-
-function measureVirtualRow(el: Element | null) {
-  if (!el) return
-  rowVirtualizer.value.measureElement(el)
+function goToPage(next: number) {
+  page.value = Math.min(Math.max(1, next), totalPages.value)
 }
-
-watch(
-  () => filteredSources.value.length,
-  (count) => {
-    if (count > forceListThreshold && view.value === 'grid') {
-      view.value = 'list'
-    }
-  },
-)
-
-watch(
-  [query, status, language, contentType, nsfw, sort, effectiveView],
-  async () => {
-    await nextTick()
-
-    if (listViewportRef.value) {
-      listViewportRef.value.scrollTop = 0
-    }
-
-    rowVirtualizer.value.scrollToOffset(0)
-  },
-)
 
 onMounted(async () => {
   try {
@@ -292,7 +243,6 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   window.clearTimeout(searchDebounce)
-  window.clearTimeout(viewAnimationTimer)
 })
 </script>
 
@@ -557,29 +507,56 @@ onBeforeUnmount(() => {
           <div class="catalog-toolbar__controls">
             <div class="segmented">
               <button
-                :class="['segmented__item', { 'is-active': effectiveView === 'grid' }]"
-                :disabled="isGridLocked"
+                :class="['segmented__item', { 'is-active': view === 'grid' }]"
                 @click="setView('grid')"
               >
                 Grid
               </button>
 
               <button
-                :class="['segmented__item', { 'is-active': effectiveView === 'list' }]"
+                :class="['segmented__item', { 'is-active': view === 'list' }]"
                 @click="setView('list')"
               >
                 List
               </button>
             </div>
 
+            <label class="field field--inline catalog-toolbar__per-page">
+              <span>Per page</span>
+              <select v-model.number="perPage">
+                <option v-for="option in perPageOptions" :key="option" :value="option">
+                  {{ option }}
+                </option>
+              </select>
+            </label>
+
             <p class="controls__count">
-              Showing {{ formatNumber(filteredSources.length) }} source<span v-if="filteredSources.length !== 1">s</span>
+              Showing {{ formatNumber(paginatedSources.length) }} of
+              {{ formatNumber(filteredSources.length) }} source<span v-if="filteredSources.length !== 1">s</span>
             </p>
           </div>
 
-          <p v-if="isGridLocked" class="catalog-toolbar__perf-note">
-            Grid is automatically disabled above {{ formatNumber(forceListThreshold) }} results to keep scrolling smooth.
-          </p>
+          <div class="pagination">
+            <button
+              class="button button--ghost button--small"
+              :disabled="!canGoPrev"
+              @click="goToPage(page - 1)"
+            >
+              Prev
+            </button>
+
+            <span class="pagination__status">
+              Page {{ formatNumber(page) }} / {{ formatNumber(totalPages) }}
+            </span>
+
+            <button
+              class="button button--ghost button--small"
+              :disabled="!canGoNext"
+              @click="goToPage(page + 1)"
+            >
+              Next
+            </button>
+          </div>
         </section>
 
         <section v-if="loading" class="loading card">
@@ -587,48 +564,23 @@ onBeforeUnmount(() => {
           <p>Loading catalog…</p>
         </section>
 
-        <section v-else-if="filteredSources.length === 0" class="empty-state card">
+        <section v-else-if="paginatedSources.length === 0" class="empty-state card">
           <h2>No sources matched your filters.</h2>
           <p>Reset the filters or regenerate the dataset from the upstream repository to repopulate the catalog.</p>
-        </section>
-
-        <section
-          v-else-if="shouldVirtualize"
-          ref="listViewportRef"
-          class="sources-virtual card"
-        >
-          <div
-            class="sources-virtual__inner"
-            :style="{ height: `${totalSize}px` }"
-          >
-            <div
-              v-for="virtualRow in virtualRows"
-              :key="virtualRow.key"
-              :ref="measureVirtualRow"
-              class="sources-virtual__row"
-              :style="{ transform: `translateY(${virtualRow.start}px)` }"
-            >
-              <SourceCard
-                :source="filteredSources[virtualRow.index]"
-                :compact="true"
-              />
-            </div>
-          </div>
         </section>
 
         <section
           v-else
           :class="[
             'sources',
-            `sources--${effectiveView}`,
-            { 'sources--animating': isAnimatingView && shouldAnimateView }
+            `sources--${view}`
           ]"
         >
           <SourceCard
-            v-for="source in filteredSources"
+            v-for="source in paginatedSources"
             :key="source.id"
             :source="source"
-            :compact="effectiveView === 'list'"
+            :compact="view === 'list'"
           />
         </section>
       </main>
