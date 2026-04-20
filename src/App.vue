@@ -2,11 +2,12 @@
 import { computed, onMounted, ref } from 'vue'
 import MetricCard from '@/components/MetricCard.vue'
 import SourceCard from '@/components/SourceCard.vue'
+
 import { formatDate, formatNumber } from '@/lib/format'
 import { sampleData } from '@/sample-data'
 import type { SourceDataset, SourceItem, SourceStatus } from '@/types'
 
-const dataset = ref<SourceDataset>(sampleData)
+const catalogData = ref<SourceDataset>(sampleData)
 const loading = ref(true)
 const error = ref<string | null>(null)
 
@@ -25,25 +26,27 @@ const statusOrder: Record<SourceStatus, number> = {
 }
 
 const languages = computed(() => {
-  const values = new Set(dataset.value.sources.map((source) => source.language).filter(Boolean))
+  const values = new Set(catalogData.value.sources.map((source) => source.language).filter(Boolean))
   return ['all', ...Array.from(values).sort((a, b) => a.localeCompare(b))]
 })
 
 const contentTypes = computed(() => {
-  const values = new Set(dataset.value.sources.map((source) => source.contentType ?? 'MANGA'))
+  const values = new Set(catalogData.value.sources.map((source) => source.contentType ?? 'MANGA'))
   return ['all', ...Array.from(values).sort((a, b) => a.localeCompare(b))]
 })
 
 const topLocales = computed(() => {
-  const source = dataset.value.byLocale ?? {}
-  return Object.entries(source)
+  const localeSummary = catalogData.value.byLocale ?? {}
+
+  return Object.entries(localeSummary)
     .sort((left, right) => right[1] - left[1])
     .slice(0, 8)
 })
 
 const topTypes = computed(() => {
-  const source = dataset.value.byType ?? {}
-  return Object.entries(source)
+  const typeSummary = catalogData.value.byType ?? {}
+
+  return Object.entries(typeSummary)
     .sort((left, right) => right[1] - left[1])
     .slice(0, 6)
 })
@@ -51,11 +54,13 @@ const topTypes = computed(() => {
 const filteredSources = computed<SourceItem[]>(() => {
   const normalizedQuery = query.value.trim().toLowerCase()
 
-  const filtered = dataset.value.sources.filter((source) => {
+  const filtered = catalogData.value.sources.filter((source) => {
     const matchesStatus = status.value === 'all' || source.health.status === status.value
     const matchesLanguage = language.value === 'all' || source.language === language.value
+
     const sourceType = source.contentType ?? 'MANGA'
     const matchesType = contentType.value === 'all' || sourceType === contentType.value
+
     const haystack = [
       source.title,
       source.key,
@@ -68,6 +73,7 @@ const filteredSources = computed<SourceItem[]>(() => {
     ]
       .join(' ')
       .toLowerCase()
+
     const matchesQuery = !normalizedQuery || haystack.includes(normalizedQuery)
 
     return matchesStatus && matchesLanguage && matchesType && matchesQuery
@@ -91,15 +97,17 @@ const filteredSources = computed<SourceItem[]>(() => {
 })
 
 const qualityScore = computed(() => {
-  const total = dataset.value.summary.total || dataset.value.sources.length
+  const total = catalogData.value.summary.total || catalogData.value.sources.length
   if (!total) return 0
-  return Math.round((dataset.value.summary.working / total) * 100)
+
+  return Math.round((catalogData.value.summary.working / total) * 100)
 })
 
 const brokenShare = computed(() => {
-  const total = dataset.value.summary.total || dataset.value.sources.length
+  const total = catalogData.value.summary.total || catalogData.value.sources.length
   if (!total) return 0
-  return Math.round((dataset.value.summary.broken / total) * 100)
+
+  return Math.round((catalogData.value.summary.broken / total) * 100)
 })
 
 function applyStatus(next: 'all' | SourceStatus) {
@@ -117,13 +125,15 @@ function resetFilters() {
 onMounted(async () => {
   try {
     const response = await fetch(`${import.meta.env.BASE_URL}data/sources.json`, { cache: 'no-store' })
+
     if (!response.ok) {
       throw new Error(`Dataset request failed with ${response.status}`)
     }
 
-    const liveData = (await response.json()) as SourceDataset
-    if (liveData.sources.length > 0) {
-      dataset.value = liveData
+    const liveCatalog = (await response.json()) as SourceDataset
+
+    if (liveCatalog.sources.length > 0) {
+      catalogData.value = liveCatalog
     }
   } catch (reason) {
     error.value = reason instanceof Error ? reason.message : 'Unknown data loading error'
@@ -139,25 +149,37 @@ onMounted(async () => {
 
     <header class="topbar card" id="top">
       <div class="topbar__brand">
-        <div class="topbar__logo">U</div>
+        <div class="topbar__logo">C</div>
+
         <div>
-          <p class="topbar__eyebrow">Usagi parser catalog</p>
-          <strong>Parser source browser</strong>
+          <p class="topbar__eyebrow">Parser source catalog</p>
+          <strong>Catalog browser</strong>
         </div>
       </div>
 
       <nav class="topbar__nav">
         <a href="#catalog">Catalog</a>
         <a href="#filters">Filters</a>
-        <a href="#distribution">Distribution</a>
-        <a href="#safety">Safety</a>
+        <a href="#distribution">Overview</a>
+        <a href="#safety">Notice</a>
       </nav>
 
       <div class="topbar__actions">
-        <a class="button button--ghost" :href="`https://github.com/Usagi-App/Parser`" target="_blank" rel="noreferrer noopener">
-          Github Repo of this Website
+        <a
+          class="button button--ghost"
+          :href="`https://github.com/Usagi-App/Parser`"
+          target="_blank"
+          rel="noreferrer noopener"
+        >
+          Source repository
         </a>
-        <a class="button button--ghost" href="https://github.com/InvalidDavid" target="_blank" rel="noreferrer noopener">
+
+        <a
+          class="button button--ghost"
+          href="https://github.com/InvalidDavid"
+          target="_blank"
+          rel="noreferrer noopener"
+        >
           Developer
         </a>
       </div>
@@ -165,29 +187,33 @@ onMounted(async () => {
 
     <section class="hero card">
       <div class="hero__copy">
-        <p class="hero__eyebrow">Parser / Source List</p>
+        <p class="hero__eyebrow">Parser / Source Catalog</p>
+
         <p class="hero__text">
-          Dashboard List of <code>YakaTeam/kotatsu-parsers</code> whats broken or working.
+          This website serves only as an informational catalog of parser sources,
+          extracted metadata, and availability indicators.
         </p>
 
         <div class="hero__actions">
           <a class="button button--primary" href="#catalog">Browse sources</a>
           <a class="button button--ghost" href="#filters">Open search bar</a>
-          <a class="button button--ghost" href="https://yumemi.moe/" target="_blank" rel="noreferrer noopener">
-            Usagi App
-          </a>
         </div>
 
         <div class="hero__warning" id="safety">
           <strong>Third-party website warning</strong>
+
           <p>
-            Website buttons open external domains run by other parties. Availability, ads, redirects,
-            and content are outside your control.
+            Website buttons open external domains run by other parties. Availability, ads,
+            redirects, and content are outside your control.
           </p>
         </div>
 
         <div class="hero__warning" id="kaoako">
-          <strong>Directory only. No manga content is hosted, cached, or proxied here. Visiting a source's site from a card takes you to the third-party site directly. </strong>
+          <strong>
+            Catalog only. This website lists source metadata for reference and discovery.
+            No reader application is provided here, and no source content is hosted,
+            cached, or proxied by this website.
+          </strong>
         </div>
       </div>
 
@@ -195,19 +221,22 @@ onMounted(async () => {
         <ul class="hero__facts">
           <li>
             <span>Generated</span>
-            <strong>{{ formatDate(dataset.generatedAt) }}</strong>
+            <strong>{{ formatDate(catalogData.generatedAt) }}</strong>
           </li>
+
           <li>
-            <span>Repo</span>
-            <strong>{{ dataset.sourceRepo.owner }}/{{ dataset.sourceRepo.repo }}</strong>
+            <span>Upstream</span>
+            <strong>{{ catalogData.sourceRepo.owner }}/{{ catalogData.sourceRepo.repo }}</strong>
           </li>
+
           <li>
             <span>Broken share</span>
             <strong>{{ brokenShare }}%</strong>
           </li>
+
           <li>
             <span>Builder</span>
-            <strong>{{ dataset.generatedBy ?? 'Static bundle' }}</strong>
+            <strong>{{ catalogData.generatedBy ?? 'Static bundle' }}</strong>
           </li>
         </ul>
       </aside>
@@ -216,33 +245,38 @@ onMounted(async () => {
     <section class="metrics-grid" id="distribution">
       <MetricCard
         label="Total sources"
-        :value="formatNumber(dataset.summary.total || dataset.sources.length)"
-        hint="Unique parser entries extracted from Kotlin source files"
+        :value="formatNumber(catalogData.summary.total || catalogData.sources.length)"
+        hint="Unique parser entries extracted from upstream source files"
       />
+
       <MetricCard
         label="Available"
-        :value="formatNumber(dataset.summary.working)"
-        hint="Not marked @Broken upstream"
+        :value="formatNumber(catalogData.summary.working)"
+        hint="Not marked broken upstream"
       />
+
       <MetricCard
         label="Broken"
-        :value="formatNumber(dataset.summary.broken)"
+        :value="formatNumber(catalogData.summary.broken)"
         hint="Explicitly flagged as broken upstream"
       />
+
       <MetricCard
         label="Locales"
-        :value="formatNumber(Object.keys(dataset.byLocale ?? {}).length)"
+        :value="formatNumber(Object.keys(catalogData.byLocale ?? {}).length)"
         hint="Language buckets present in the catalog"
       />
     </section>
 
     <section class="info-banner card">
       <div>
-        <p>{{ dataset.disclaimer }}</p>
-        <p v-if="dataset.duplicatesSkipped?.length" class="info-banner__meta">
-          Duplicate parser keys skipped: {{ dataset.duplicatesSkipped.join(', ') }}
+        <p>{{ catalogData.disclaimer }}</p>
+
+        <p v-if="catalogData.duplicatesSkipped?.length" class="info-banner__meta">
+          Duplicate parser keys skipped: {{ catalogData.duplicatesSkipped.join(', ') }}
         </p>
       </div>
+
       <p v-if="error" class="info-banner__error">Live dataset failed to load: {{ error }}</p>
     </section>
 
@@ -253,6 +287,7 @@ onMounted(async () => {
             <p class="sidebar__eyebrow">Sticky controls</p>
             <h2>Find the source fast</h2>
           </div>
+
           <label class="field field--search">
             <span>Search</span>
             <input v-model="query" type="search" placeholder="Title, key, domain, path, reason…" />
@@ -261,11 +296,16 @@ onMounted(async () => {
 
         <div class="sidebar__section">
           <div class="sidebar__label">Status</div>
+
           <div class="sidebar__chips">
             <button :class="['chip-button', { 'is-active': status === 'all' }]" @click="applyStatus('all')">All</button>
+
             <button :class="['chip-button', { 'is-active': status === 'working' }]" @click="applyStatus('working')">Working</button>
+
             <button :class="['chip-button', { 'is-active': status === 'broken' }]" @click="applyStatus('broken')">Broken</button>
+
             <button :class="['chip-button', { 'is-active': status === 'blocked' }]" @click="applyStatus('blocked')">Blocked</button>
+
             <button :class="['chip-button', { 'is-active': status === 'unknown' }]" @click="applyStatus('unknown')">Unknown</button>
           </div>
         </div>
@@ -273,6 +313,7 @@ onMounted(async () => {
         <div class="sidebar__section sidebar__section--stacked">
           <label class="field">
             <span>Language</span>
+
             <select v-model="language">
               <option v-for="option in languages" :key="option" :value="option">
                 {{ option === 'all' ? 'All languages' : option.toUpperCase() }}
@@ -282,6 +323,7 @@ onMounted(async () => {
 
           <label class="field">
             <span>Content type</span>
+
             <select v-model="contentType">
               <option v-for="option in contentTypes" :key="option" :value="option">
                 {{ option === 'all' ? 'All content types' : option }}
@@ -291,6 +333,7 @@ onMounted(async () => {
 
           <label class="field">
             <span>Sort</span>
+
             <select v-model="sort">
               <option value="status">Status</option>
               <option value="title">Title</option>
@@ -302,17 +345,20 @@ onMounted(async () => {
 
         <div class="sidebar__section">
           <div class="sidebar__label">Quick metrics</div>
+
           <div class="sidebar__metrics">
             <div>
               <strong>{{ formatNumber(filteredSources.length) }}</strong>
               <span>Shown</span>
             </div>
+
             <div>
-              <strong>{{ formatNumber(dataset.summary.working) }}</strong>
+              <strong>{{ formatNumber(catalogData.summary.working) }}</strong>
               <span>Working</span>
             </div>
+
             <div>
-              <strong>{{ formatNumber(dataset.summary.broken) }}</strong>
+              <strong>{{ formatNumber(catalogData.summary.broken) }}</strong>
               <span>Broken</span>
             </div>
           </div>
@@ -320,6 +366,7 @@ onMounted(async () => {
 
         <div class="sidebar__section">
           <div class="sidebar__label">Top locales</div>
+
           <div class="sidebar__chips">
             <span v-for="[code, count] in topLocales" :key="code" class="sidebar-chip">
               {{ code.toUpperCase() }} · {{ formatNumber(count) }}
@@ -329,6 +376,7 @@ onMounted(async () => {
 
         <div class="sidebar__section">
           <div class="sidebar__label">Top content types</div>
+
           <div class="sidebar__chips">
             <span v-for="[type, count] in topTypes" :key="type" class="sidebar-chip">
               {{ type }} · {{ formatNumber(count) }}
@@ -343,7 +391,13 @@ onMounted(async () => {
 
         <div class="sidebar__section sidebar__actions">
           <button class="button button--ghost button--block" @click="resetFilters">Reset filters</button>
-          <a class="button button--ghost button--block" :href="`https://github.com/${dataset.sourceRepo.owner}/${dataset.sourceRepo.repo}`" target="_blank" rel="noreferrer noopener">
+
+          <a
+            class="button button--ghost button--block"
+            :href="`https://github.com/${catalogData.sourceRepo.owner}/${catalogData.sourceRepo.repo}`"
+            target="_blank"
+            rel="noreferrer noopener"
+          >
             Open upstream repo
           </a>
         </div>
@@ -353,7 +407,7 @@ onMounted(async () => {
         <section class="catalog-toolbar card">
           <div>
             <p class="catalog-toolbar__eyebrow">Catalog</p>
-            <h2>Select... --></h2>
+            <h2>Browse source entries</h2>
           </div>
 
           <div class="catalog-toolbar__controls">
@@ -361,10 +415,12 @@ onMounted(async () => {
               <button :class="['segmented__item', { 'is-active': view === 'grid' }]" @click="view = 'grid'">
                 Grid
               </button>
+
               <button :class="['segmented__item', { 'is-active': view === 'list' }]" @click="view = 'list'">
                 List
               </button>
             </div>
+
             <p class="controls__count">
               Showing {{ formatNumber(filteredSources.length) }} source<span v-if="filteredSources.length !== 1">s</span>
             </p>
@@ -378,7 +434,7 @@ onMounted(async () => {
 
         <section v-else-if="filteredSources.length === 0" class="empty-state card">
           <h2>No sources matched your filters.</h2>
-          <p>Reset the filters or regenerate the dataset from YakaTeam to repopulate the catalog.</p>
+          <p>Reset the filters or regenerate the dataset from the upstream repository to repopulate the catalog.</p>
         </section>
 
         <section v-else :class="['sources', `sources--${view}`]">
