@@ -165,19 +165,16 @@ onMounted(async () => {
 
     <section class="hero card">
       <div class="hero__copy">
-        <p class="hero__eyebrow">Professional catalog, not fake uptime theater</p>
-        <h1>Professional parser dashboard with real catalog metadata and cleaner navigation.</h1>
+        <p class="hero__eyebrow">Parser / Source List</p>
         <p class="hero__text">
-          Inspired by the structured feel of the Yumemi site, but rebuilt for your parser use case:
-          a fixed dark interface, sticky filtering, clearer actions, and dataset generation from
-          <code>YakaTeam/kotatsu-parsers</code> instead of pretending live website checks are trustworthy.
+          Dashboard List of <code>YakaTeam/kotatsu-parsers</code> whats broken or working.
         </p>
 
         <div class="hero__actions">
           <a class="button button--primary" href="#catalog">Browse sources</a>
-          <a class="button button--ghost" href="#filters">Open filter sidebar</a>
-          <a class="button button--ghost" href="https://github.com/YumemiProject/yumemiproject.github.io" target="_blank" rel="noreferrer noopener">
-            UI inspiration
+          <a class="button button--ghost" href="#filters">Open search bar</a>
+          <a class="button button--ghost" href="https://yumemi.moe/" target="_blank" rel="noreferrer noopener">
+            Usagi App
           </a>
         </div>
 
@@ -191,11 +188,6 @@ onMounted(async () => {
       </div>
 
       <aside class="hero__panel">
-        <div class="hero__score-ring">
-          <span>{{ qualityScore }}%</span>
-          <small>Not marked broken</small>
-        </div>
-
         <ul class="hero__facts">
           <li>
             <span>Generated</span>
@@ -357,11 +349,6 @@ onMounted(async () => {
         <section class="catalog-toolbar card">
           <div>
             <p class="catalog-toolbar__eyebrow">Source catalog</p>
-            <h2>Original top navigation plus a proper sticky filter rail</h2>
-            <p class="catalog-toolbar__text">
-              The top bar stays for navigation and identity. The left sidebar handles the real work:
-              searching, filtering, sorting, and keeping the warning visible while people scroll.
-            </p>
           </div>
 
           <div class="catalog-toolbar__controls">
