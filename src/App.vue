@@ -154,11 +154,11 @@ onMounted(async () => {
       </nav>
 
       <div class="topbar__actions">
-        <a class="button button--ghost" :href="`https://github.com/${dataset.sourceRepo.owner}/${dataset.sourceRepo.repo}`" target="_blank" rel="noreferrer noopener">
-          Source repo
+        <a class="button button--ghost" :href="`https://github.com/Usagi-App/Parser`" target="_blank" rel="noreferrer noopener">
+          Github Repo of this Website
         </a>
-        <a class="button button--ghost" href="https://github.com/AgentKush/kotatsu-parsers/tree/master/docs" target="_blank" rel="noreferrer noopener">
-          Design reference
+        <a class="button button--ghost" href="https://github.com/InvalidDavid" target="_blank" rel="noreferrer noopener">
+          Developer
         </a>
       </div>
     </header>
