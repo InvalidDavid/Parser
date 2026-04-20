@@ -48,6 +48,9 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Install TanStack Vue Virtual
+        run: npm install @tanstack/vue-virtual
+
       - name: Generate parser catalog dataset
         run: >
           python3 scripts/build_catalog.py
