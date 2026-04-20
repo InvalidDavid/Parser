@@ -171,7 +171,7 @@ def build_dataset(repo_root: Path, output_path: Path, owner: str, repo: str, bra
         'byLocale': by_locale,
         'sources': entries,
         'disclaimer': (
-            'Generated from YakaTeam parser source, modeled on scripts/build_catalog.py, click on "Github Repo of this Website".'
+            'Generated from YakaTeam parser source, modeled on scripts/build_catalog.py.'
             '“Working” means the parser is not marked @Broken upstream. It is not a live site health check.'
         ),
         'duplicatesSkipped': duplicates,
