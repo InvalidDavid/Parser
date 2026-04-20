@@ -466,27 +466,6 @@ onBeforeUnmount(() => {
           </label>
         </div>
 
-        <div class="sidebar__section">
-          <div class="sidebar__label">Quick metrics</div>
-
-          <div class="sidebar__metrics">
-            <div>
-              <strong>{{ formatNumber(filteredSources.length) }}</strong>
-              <span>Shown</span>
-            </div>
-
-            <div>
-              <strong>{{ formatNumber(dataset.summary.working) }}</strong>
-              <span>Working</span>
-            </div>
-
-            <div>
-              <strong>{{ formatNumber(dataset.summary.broken) }}</strong>
-              <span>Broken</span>
-            </div>
-          </div>
-        </div>
-
         <div class="sidebar__section sidebar__section--centered">
           <div class="sidebar__label">Top locales</div>
 
