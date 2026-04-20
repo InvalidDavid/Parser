@@ -1,5 +1,5 @@
 {
-  "generated_by": "docs/build_catalog.py",
+  "generated_by": "scripts/build_catalog.py",
   "total": 1176,
   "broken": 366,
   "by_type": {
