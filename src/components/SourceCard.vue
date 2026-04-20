@@ -75,7 +75,7 @@ const visibleDomains = computed(() =>
       <div class="source-card__actions">
         <a
           v-if="websiteUrl"
-          class="button button--primary button--small"
+          class="button button--website button--small"
           :href="websiteUrl"
           target="_blank"
           rel="noreferrer noopener"
