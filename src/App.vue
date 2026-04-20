@@ -348,7 +348,8 @@ onMounted(async () => {
       <main class="catalog" id="catalog">
         <section class="catalog-toolbar card">
           <div>
-            <p class="catalog-toolbar__eyebrow">Source catalog</p>
+            <p class="catalog-toolbar__eyebrow">Catalog</p>
+            <h2>Select... --></h2>
           </div>
 
           <div class="catalog-toolbar__controls">
