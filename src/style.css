@@ -805,18 +805,6 @@ code {
   border-color: rgba(113, 223, 157, 0.45);
 }
 
-.status-pill--blocked {
-  color: #fff4da;
-  background: rgba(255, 195, 111, 0.2);
-  border-color: rgba(255, 195, 111, 0.45);
-}
-
-.status-pill--unknown {
-  color: #eef3ff;
-  background: rgba(125, 184, 255, 0.16);
-  border-color: rgba(125, 184, 255, 0.24);
-}
-
 .status-pill--broken {
   color: #fff0f4;
   background: rgba(255, 138, 163, 0.2);
