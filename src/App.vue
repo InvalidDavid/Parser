@@ -487,7 +487,7 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <div class="sidebar__section">
+        <div class="sidebar__section sidebar__section--centered">
           <div class="sidebar__label">Top locales</div>
 
           <div class="sidebar__chips">
@@ -497,7 +497,7 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <div class="sidebar__section">
+        <div class="sidebar__section sidebar__section--centered">
           <div class="sidebar__label">Top content types</div>
 
           <div class="sidebar__chips">
