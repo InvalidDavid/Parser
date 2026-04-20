@@ -1,3 +1,4 @@
+# made by [InvalidDavid](https://github.com/InvalidDavid)
 # Kotatsu Source Watch
 
 A Vue/Vite dashboard for browsing Kotatsu parser sources, extracted domains, and a generated health snapshot.
