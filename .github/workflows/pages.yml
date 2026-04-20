@@ -1,4 +1,4 @@
-name: Build and deploy dashboard
+name: Build and deploy catalog
 
 on:
   push:
@@ -22,10 +22,10 @@ jobs:
 
     steps:
       - name: Check out website repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Check out parser source repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           repository: YakaTeam/kotatsu-parsers
           ref: master
@@ -37,16 +37,22 @@ jobs:
           python-version: '3.12'
 
       - name: Set up Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v4
         with:
-          node-version: 24
-          package-manager-cache: false
+          node-version: 22
+          cache: npm
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Generate parser catalog dataset
-        run: python3 scripts/build_catalog.py --repo-dir .cache/kotatsu-parsers --output public/data/sources.json --owner YakaTeam --repo kotatsu-parsers --branch master
+        run: >
+          python3 scripts/build_catalog.py
+          --repo-dir .cache/kotatsu-parsers
+          --output public/data/sources.json
+          --owner YakaTeam
+          --repo kotatsu-parsers
+          --branch master
 
       - name: Build site
         run: npm run build
