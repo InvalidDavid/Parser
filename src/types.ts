@@ -14,12 +14,18 @@ export interface SourceItem {
   key: string
   title: string
   language: string
+  languageName?: string
   engine: string | null
   path: string
   repoUrl: string
   rawUrl: string
   domains: string[]
   health: HealthCheck
+
+  contentType?: string | null
+  brokenReason?: string | null
+  nsfw?: boolean
+  searchText?: string
 }
 
 export interface DataSummary {
@@ -28,10 +34,12 @@ export interface DataSummary {
   broken: number
   blocked: number
   unknown: number
+  nsfw?: number
 }
 
 export interface SourceDataset {
   generatedAt: string | null
+  generatedBy?: string | null
   sourceRepo: {
     owner: string
     repo: string
@@ -40,4 +48,7 @@ export interface SourceDataset {
   summary: DataSummary
   sources: SourceItem[]
   disclaimer: string
+  byLocale?: Record<string, number>
+  byType?: Record<string, number>
+  duplicatesSkipped?: string[]
 }
