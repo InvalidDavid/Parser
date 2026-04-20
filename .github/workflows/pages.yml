@@ -46,10 +46,7 @@ jobs:
           package-manager-cache: false
 
       - name: Install dependencies
-        run: npm install
-
-      - name: Install TanStack Vue Virtual
-        run: npm install @tanstack/vue-virtual
+        run: npm install --no-fund --no-audit
 
       - name: Generate parser catalog dataset
         run: >
