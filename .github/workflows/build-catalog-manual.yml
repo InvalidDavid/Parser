@@ -1,4 +1,4 @@
-name: Build catalog manually
+name: Build catalog manually and commit
 
 on:
   workflow_dispatch:
@@ -25,7 +25,7 @@ on:
         type: string
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-catalog:
@@ -62,6 +62,21 @@ jobs:
           echo ""
           echo "First 40 lines:"
           head -n 40 ${{ inputs.output }}
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add ${{ inputs.output }}
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+
+          git commit -m "chore: update parser catalog data"
+          git push
 
       - name: Upload generated catalog artifact
         uses: actions/upload-artifact@v4
