@@ -10,68 +10,64 @@ const props = defineProps<{
 
 const websiteUrl = computed(() => {
   const domain = props.source.domains[0]
-  if (!domain) return null
-
-  return domain.startsWith('http://') || domain.startsWith('https://')
-    ? domain
-    : `https://${domain}`
+  return domain ? `https://${domain}` : null
 })
 
-const contentTypeLabel = computed(() => props.source.contentType ?? 'MANGA')
-const reason = computed(() => props.source.brokenReason || props.source.health.reason)
-const languageLabel = computed(() => props.source.languageName || props.source.language.toUpperCase())
-const visibleDomains = computed(() =>
-  props.compact ? props.source.domains.slice(0, 2) : props.source.domains.slice(0, 4),
-)
+const visibleDomains = computed(() => {
+  return props.source.domains.slice(0, props.compact ? 2 : 4)
+})
+
+const hiddenDomainCount = computed(() => {
+  return Math.max(props.source.domains.length - visibleDomains.value.length, 0)
+})
+
+const displayLanguage = computed(() => {
+  return props.source.languageName || props.source.language.toUpperCase()
+})
+
+const contentTypeLabel = computed(() => {
+  return props.source.contentType ?? 'MANGA'
+})
+
+const brokenReason = computed(() => {
+  return props.source.brokenReason || props.source.health.reason
+})
 </script>
 
 <template>
   <article :class="['source-card', { 'source-card--compact': compact }]">
     <div class="source-card__top">
       <div class="source-card__title-wrap">
-        <div class="source-card__eyebrow">{{ source.key }}</div>
-        <h3 :title="source.title">{{ source.title }}</h3>
+        <p class="source-card__eyebrow">{{ contentTypeLabel }}</p>
+        <h3>{{ source.title }}</h3>
+        <p class="source-card__path">{{ source.path }}</p>
       </div>
 
       <div class="source-card__badges">
-        <span v-if="source.nsfw" class="source-card__tag source-card__tag--nsfw">NSFW</span>
         <StatusPill :status="source.health.status" />
+        <span v-if="source.nsfw" class="source-card__tag source-card__tag--nsfw">NSFW</span>
       </div>
     </div>
 
     <div class="source-card__meta">
-      <span>{{ languageLabel }}</span>
-      <span>{{ contentTypeLabel }}</span>
-      <span v-if="!compact">{{ source.engine ?? 'Custom engine' }}</span>
+      <span>{{ displayLanguage }}</span>
+      <span>{{ source.engine ?? 'Unknown engine' }}</span>
+      <span>{{ source.key }}</span>
       <span>{{ source.domains.length }} domain<span v-if="source.domains.length !== 1">s</span></span>
     </div>
 
-    <p v-if="!compact" class="source-card__path">{{ source.path }}</p>
+    <p v-if="brokenReason" class="source-card__reason">
+      {{ brokenReason }}
+    </p>
 
-    <div class="domain-list">
-      <span v-for="domain in visibleDomains" :key="domain" class="domain-chip">
-        {{ domain }}
-      </span>
-
-      <span
-        v-if="source.domains.length > visibleDomains.length"
-        class="domain-chip domain-chip--more"
-      >
-        +{{ source.domains.length - visibleDomains.length }} more
-      </span>
-
-      <span v-if="!source.domains.length" class="domain-chip domain-chip--more">
-        No domain extracted yet
+    <div v-if="visibleDomains.length" class="domain-list">
+      <span v-for="domain in visibleDomains" :key="domain" class="domain-chip">{{ domain }}</span>
+      <span v-if="hiddenDomainCount > 0" class="domain-chip domain-chip--more">
+        +{{ hiddenDomainCount }} more
       </span>
     </div>
 
-    <p v-if="reason && !compact" class="source-card__reason">
-      {{ reason }}
-    </p>
-
     <div class="source-card__footer">
-      <p v-if="!compact" class="source-card__warning">Website opens a third-party domain.</p>
-
       <div class="source-card__actions">
         <a
           v-if="websiteUrl"
@@ -80,27 +76,40 @@ const visibleDomains = computed(() =>
           target="_blank"
           rel="noreferrer noopener"
         >
-          🌐 Website
+          <svg class="button__icon" viewBox="0 0 24 24" fill="none">
+            <path d="M4 12C4 7.6 7.6 4 12 4C16.4 4 20 7.6 20 12C20 16.4 16.4 20 12 20C7.6 20 4 16.4 4 12Z" />
+            <path d="M4.8 9H19.2" />
+            <path d="M4.8 15H19.2" />
+            <path d="M12 4C14.4 6.2 15.7 9.1 15.7 12C15.7 14.9 14.4 17.8 12 20" />
+            <path d="M12 4C9.6 6.2 8.3 9.1 8.3 12C8.3 14.9 9.6 17.8 12 20" />
+          </svg>
+          Website
         </a>
 
         <a
-          v-if="!compact"
           class="button button--ghost button--small"
           :href="source.repoUrl"
           target="_blank"
           rel="noreferrer noopener"
         >
-          📄 Parser
+          <svg class="button__icon" viewBox="0 0 24 24" fill="none">
+            <path d="M9 18L15 12L9 6" />
+          </svg>
+          File
         </a>
 
         <a
-          v-if="!compact"
           class="button button--ghost button--small"
           :href="source.rawUrl"
           target="_blank"
           rel="noreferrer noopener"
         >
-          🧩 Raw
+          <svg class="button__icon" viewBox="0 0 24 24" fill="none">
+            <path d="M8 6L5 12L8 18" />
+            <path d="M16 6L19 12L16 18" />
+            <path d="M13 4L11 20" />
+          </svg>
+          Raw
         </a>
       </div>
     </div>
