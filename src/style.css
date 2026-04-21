@@ -443,47 +443,66 @@ polyline {
 
 .overview-card__bars {
   display: grid;
-  gap: 12px;
+  gap: 10px;
   margin-top: 18px;
 }
 
 .overview-bar {
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 
 .overview-bar__head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .overview-bar__head span {
   color: var(--text-soft);
-  font-size: 0.78rem;
+  font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.12em;
   font-weight: 800;
 }
 
 .overview-bar__head strong {
-  font-size: 0.95rem;
+  font-size: 0.82rem;
 }
 
 .overview-bar__track {
-  height: 10px;
+  height: 7px;
   overflow: hidden;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .overview-bar__fill {
+  position: relative;
   display: block;
   height: 100%;
   border-radius: inherit;
+  transform: scaleX(0);
+  transform-origin: left center;
+  animation: barGrow 720ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation-delay: var(--bar-delay, 0ms);
+}
+
+.overview-bar__fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.22), transparent);
+  animation: barShine 1.8s ease-in-out infinite;
+  animation-delay: calc(var(--bar-delay, 0ms) + 400ms);
+}
+
+.overview-bar__meta {
+  color: var(--text-soft);
+  font-size: 0.75rem;
 }
 
 .overview-bar__fill.is-working {
@@ -496,6 +515,25 @@ polyline {
 
 .overview-bar__fill.is-nsfw {
   background: linear-gradient(90deg, rgba(124, 140, 255, 0.72), rgba(124, 140, 255, 1));
+}
+
+@keyframes barGrow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes barShine {
+  0%,
+  55% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(120%);
+  }
 }
 
 .overview-card__stats {
@@ -513,18 +551,18 @@ polyline {
   z-index: 1;
   width: 100%;
   margin-top: 0;
-  padding: 16px;
+  padding: 14px 14px 12px;
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.035);
 }
 
 .overview-card__decor {
   position: absolute;
-  right: -40px;
-  top: -40px;
-  width: 200px;
-  height: 200px;
+  right: -56px;
+  top: -56px;
+  width: 180px;
+  height: 180px;
   border-radius: 50%;
   background: radial-gradient(circle, rgba(124, 140, 255, 0.18), transparent 70%);
   pointer-events: none;
@@ -563,33 +601,16 @@ polyline {
 .info-banner {
   margin-top: 16px;
   padding: 16px 18px;
-  display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
-  gap: 16px;
 }
 
 .info-banner p {
   margin: 0;
 }
 
-.info-banner__main {
-  display: grid;
-  gap: 8px;
-}
-
 .info-banner__notices {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
-}
-
-.info-banner__meta {
-  margin-top: 8px !important;
-  color: var(--text-soft);
-}
-
-.info-banner__error {
-  color: #ff9daf;
 }
 
 .layout {
@@ -843,17 +864,32 @@ polyline {
   display: flex;
   align-items: center;
   gap: 12px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 .pagination--android {
+  display: grid;
+  grid-template-columns: auto auto auto;
+  align-items: center;
   justify-content: center;
+  column-gap: 10px;
+  row-gap: 0;
+  width: fit-content;
+  max-width: 100%;
+  margin-inline: auto;
+}
+
+.pagination--android .button--small {
+  min-width: 58px;
+  padding-inline: 12px;
 }
 
 .pagination__center {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
+  white-space: nowrap;
 }
 
 .pagination__label,
@@ -863,13 +899,13 @@ polyline {
 }
 
 .pagination__input {
-  width: 72px;
+  width: 64px;
   min-height: 36px;
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: #12171d;
   color: var(--text);
-  padding: 0 10px;
+  padding: 0 8px;
   text-align: center;
 }
 
@@ -1251,7 +1287,13 @@ polyline {
   }
 
   .pagination--android {
+    margin-inline: 0;
+    grid-template-columns: auto auto auto;
     justify-content: flex-start;
+  }
+
+  .info-banner__notices {
+    grid-template-columns: 1fr;
   }
 
   .sources--grid,
