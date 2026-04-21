@@ -337,10 +337,6 @@ def extract_entry(
         ),
         'health': {
             'status': health_status,
-            'checkedAt': None,
-            'latencyMs': None,
-            'httpStatus': None,
-            'finalUrl': None,
             'reason': health_reason,
         },
     }
@@ -386,10 +382,27 @@ def build_dataset(repo_root: Path, output_path: Path, owner: str, repo: str, bra
 
     by_type: dict[str, int] = {}
     by_locale: dict[str, int] = {}
+    domain_groups: dict[str, list[dict[str, str]]] = {}
 
     for item in entries:
         by_type[item['contentType']] = by_type.get(item['contentType'], 0) + 1
         by_locale[item['language']] = by_locale.get(item['language'], 0) + 1
+
+        for domain in item['domains']:
+            domain_groups.setdefault(domain, []).append({
+                'key': item['key'],
+                'title': item['title'],
+                'language': item['language'],
+            })
+
+    duplicates_detected = [
+        {
+            'domain': domain,
+            'entries': matches,
+        }
+        for domain, matches in sorted(domain_groups.items())
+        if len(matches) > 1
+    ]
 
     payload = {
         'generatedAt': datetime.now(timezone.utc).isoformat(),
@@ -409,6 +422,7 @@ def build_dataset(repo_root: Path, output_path: Path, owner: str, repo: str, bra
             'It is not a live site health check.'
         ),
         'duplicatesSkipped': duplicates,
+        'duplicatesDetected': duplicates_detected,
     }
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
