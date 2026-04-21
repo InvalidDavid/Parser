@@ -33,6 +33,7 @@ const showBackToTop = ref(false)
 const layoutNavPreference = ref<'filters' | 'catalog'>('catalog')
 
 const VIEW_PREFS_KEY = 'usagi.viewPrefs'
+const THEME_KEY = 'usagi.theme'
 
 const navItems = [
   { id: 'home', label: 'Home' },
@@ -58,6 +59,14 @@ const sidebarNotices = [
       'Website buttons open external domains run by other parties. Availability, redirects, ads, and content are outside your control.',
   },
 ]
+
+const theme = ref<'dark' | 'light' | 'crimson' | 'forest'>('dark')
+const themeOptions = [
+  { value: 'dark', label: 'Dark' },
+  { value: 'light', label: 'Light' },
+  { value: 'crimson', label: 'Crimson' },
+  { value: 'forest', label: 'Forest' },
+] as const
 
 const skeletonCardCount = [1, 2, 3, 4, 5, 6]
 
@@ -114,6 +123,7 @@ watch(page, (value) => {
 })
 
 watch([view, perPage], persistViewPrefs)
+watch(theme, persistTheme)
 
 function formatContentType(value?: string) {
   const normalized = (value ?? 'MANGA').trim().toUpperCase()
@@ -303,6 +313,37 @@ function hydrateViewPrefs() {
   }
 }
 
+function applyTheme() {
+  document.documentElement.dataset.theme = theme.value
+}
+
+function persistTheme() {
+  try {
+    localStorage.setItem(THEME_KEY, theme.value)
+  } catch {
+    // ignore
+  }
+
+  applyTheme()
+}
+
+function hydrateTheme() {
+  try {
+    const raw = localStorage.getItem(THEME_KEY)
+    if (raw === 'dark' || raw === 'light' || raw === 'crimson' || raw === 'forest') {
+      theme.value = raw
+    }
+  } catch {
+    // ignore
+  }
+
+  applyTheme()
+}
+
+function setTheme(next: 'dark' | 'light' | 'crimson' | 'forest') {
+  theme.value = next
+}
+
 function updateUrlParams() {
   const params = new URLSearchParams(window.location.search)
 
@@ -343,7 +384,7 @@ function hydrateFromUrl() {
     query.value = q.trim().toLowerCase()
   }
 
-  if (nextStatus === 'all' || nextStatus === 'working' || nextStatus === 'blocked') {
+  if (nextStatus === 'all' || nextStatus === 'working' || nextStatus === 'broken') {
     status.value = nextStatus
   }
 
@@ -491,6 +532,10 @@ function applyStatus(next: 'all' | 'working' | 'broken') {
   status.value = next
 }
 
+function applyNsfw(next: 'all' | 'safe' | 'nsfw') {
+  nsfw.value = next
+}
+
 function resetFilters() {
   rawQuery.value = ''
   query.value = ''
@@ -502,6 +547,8 @@ function resetFilters() {
   view.value = 'grid'
   page.value = 1
   perPage.value = 50
+  theme.value = 'dark'
+  persistTheme()
 }
 
 function goToPage(next: number) {
@@ -509,6 +556,7 @@ function goToPage(next: number) {
 }
 
 onMounted(async () => {
+  hydrateTheme()
   hydrateViewPrefs()
   hydrateFromUrl()
 
@@ -579,6 +627,13 @@ onBeforeUnmount(() => {
           :class="['topbar__nav-button', { 'is-active': activeNav === item.id }]"
           @click="scrollToSection(item.id)"
         >
+          <span class="topbar__nav-icon" aria-hidden="true">
+            <svg v-if="item.id === 'home'" viewBox="0 0 24 24" fill="none"><path d="M4 10.5L12 4L20 10.5" /><path d="M6.5 9.5V19H17.5V9.5" /></svg>
+            <svg v-else-if="item.id === 'catalog'" viewBox="0 0 24 24" fill="none"><path d="M5 6.5C5 5.4 5.9 4.5 7 4.5H19V17.5H7C5.9 17.5 5 18.4 5 19.5" /><path d="M7 4.5C5.9 4.5 5 5.4 5 6.5V19.5" /></svg>
+            <svg v-else-if="item.id === 'filters'" viewBox="0 0 24 24" fill="none"><path d="M4 6H20" /><path d="M7 12H17" /><path d="M10 18H14" /></svg>
+            <svg v-else-if="item.id === 'distribution'" viewBox="0 0 24 24" fill="none"><path d="M5 19V11" /><path d="M12 19V7" /><path d="M19 19V4" /></svg>
+            <svg v-else viewBox="0 0 24 24" fill="none"><path d="M12 8V12" /><path d="M12 16H12.01" /><path d="M10.29 3.86L1.82 18A2 2 0 0 0 3.53 21H20.47A2 2 0 0 0 22.18 18L13.71 3.86A2 2 0 0 0 10.29 3.86Z" /></svg>
+          </span>
           {{ item.label }}
         </button>
       </nav>
@@ -590,6 +645,7 @@ onBeforeUnmount(() => {
           target="_blank"
           rel="noreferrer noopener"
         >
+          <svg class="button__icon" viewBox="0 0 24 24" fill="none"><path d="M9 18L15 12L9 6" /></svg>
           Repo
         </a>
 
@@ -664,10 +720,12 @@ onBeforeUnmount(() => {
 
         <div class="overview-card__actions">
           <button class="button button--primary" type="button" @click="scrollToSection('catalog')">
+            <svg class="button__icon" viewBox="0 0 24 24" fill="none"><path d="M5 6.5C5 5.4 5.9 4.5 7 4.5H19V17.5H7C5.9 17.5 5 18.4 5 19.5" /><path d="M7 4.5C5.9 4.5 5 5.4 5 6.5V19.5" /></svg>
             Browse catalog
           </button>
 
           <button class="button button--ghost" type="button" @click="scrollToSection('filters')">
+            <svg class="button__icon" viewBox="0 0 24 24" fill="none"><path d="M4 6H20" /><path d="M7 12H17" /><path d="M10 18H14" /></svg>
             Open filters
           </button>
         </div>
@@ -768,14 +826,16 @@ onBeforeUnmount(() => {
             </select>
           </label>
 
-          <label class="field">
+          <div class="field">
             <span>Content safety</span>
-            <select v-model="nsfw">
-              <option value="all">All entries</option>
-              <option value="safe">Safe only</option>
-              <option value="nsfw">NSFW only ({{ formatNumber(dataset.summary.nsfw ?? 0) }})</option>
-            </select>
-          </label>
+            <div class="sidebar__chips">
+              <button :class="['chip-button', { 'is-active': nsfw === 'all' }]" @click="applyNsfw('all')">All</button>
+              <button :class="['chip-button', { 'is-active': nsfw === 'safe' }]" @click="applyNsfw('safe')">Safe</button>
+              <button :class="['chip-button', { 'is-active': nsfw === 'nsfw' }]" @click="applyNsfw('nsfw')">
+                NSFW ({{ formatNumber(dataset.summary.nsfw ?? 0) }})
+              </button>
+            </div>
+          </div>
 
           <label class="field">
             <span>Sort</span>
@@ -786,6 +846,20 @@ onBeforeUnmount(() => {
               <option value="domains">Domain count</option>
             </select>
           </label>
+        </div>
+
+        <div class="sidebar__section">
+          <div class="sidebar__label">Theme</div>
+          <div class="sidebar__chips">
+            <button
+              v-for="option in themeOptions"
+              :key="option.value"
+              :class="['chip-button', { 'is-active': theme === option.value }]"
+              @click="setTheme(option.value)"
+            >
+              {{ option.label }}
+            </button>
+          </div>
         </div>
 
         <div class="sidebar__section sidebar__actions">
