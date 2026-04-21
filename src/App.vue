@@ -748,7 +748,7 @@ onBeforeUnmount(() => {
               target="_blank"
               rel="noreferrer noopener"
             >
-              scripts/build_catalog
+              InvalidDavid
             </a>
           </li>
         </ul>
