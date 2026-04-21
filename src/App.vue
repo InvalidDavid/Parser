@@ -26,6 +26,7 @@ const perPage = ref(50)
 const perPageOptions = [25, 50, 100, 200]
 
 const drawerOpen = ref(false)
+const themePanelOpen = ref(false)
 const parallaxY = ref(0)
 const activeNav = ref('home')
 const isScrolled = ref(false)
@@ -116,6 +117,7 @@ watch([query, status, language, contentType, nsfw, sort, perPage], () => {
 
 watch(drawerOpen, (open) => {
   document.body.style.overflow = open ? 'hidden' : ''
+  if (open) themePanelOpen.value = false
 })
 
 watch(page, (value) => {
@@ -201,9 +203,19 @@ function closeDrawer() {
   drawerOpen.value = false
 }
 
+function toggleThemePanel() {
+  themePanelOpen.value = !themePanelOpen.value
+  if (themePanelOpen.value) closeDrawer()
+}
+
+function closeThemePanel() {
+  themePanelOpen.value = false
+}
+
 function handleKeydown(event: KeyboardEvent) {
   if (event.key === 'Escape') {
     closeDrawer()
+    themePanelOpen.value = false
   }
 }
 
@@ -342,6 +354,7 @@ function hydrateTheme() {
 
 function setTheme(next: 'dark' | 'light' | 'crimson' | 'forest') {
   theme.value = next
+  themePanelOpen.value = false
 }
 
 function updateUrlParams() {
@@ -547,8 +560,6 @@ function resetFilters() {
   view.value = 'grid'
   page.value = 1
   perPage.value = 50
-  theme.value = 'dark'
-  persistTheme()
 }
 
 function goToPage(next: number) {
@@ -645,7 +656,10 @@ onBeforeUnmount(() => {
           target="_blank"
           rel="noreferrer noopener"
         >
-          <svg class="button__icon" viewBox="0 0 24 24" fill="none"><path d="M9 18L15 12L9 6" /></svg>
+          <svg class="button__icon" viewBox="0 0 24 24" fill="none">
+            <path d="M9 19C4 20.5 4 16.5 2 16" />
+            <path d="M15 22V18.13C15.04 17.62 14.97 17.11 14.79 16.63C14.61 16.15 14.32 15.72 13.94 15.37C17.72 14.95 21.69 13.52 21.69 6.95C21.69 5.27 21.09 3.82 20.11 2.68C20.58 1.39 20.55 -0.01 20.03 -1.28C20.03 -1.28 18.79 -1.7 15 0.92C12.59 0.27 10.05 0.27 7.64 0.92C3.85 -1.7 2.61 -1.28 2.61 -1.28C2.09 -0.01 2.06 1.39 2.53 2.68C1.55 3.82 0.95 5.27 0.95 6.95C0.95 13.51 4.91 14.95 8.69 15.37C8.31 15.72 8.02 16.15 7.84 16.63C7.66 17.11 7.59 17.62 7.63 18.13V22" transform="translate(1 1.5) scale(0.88)" />
+          </svg>
           Repo
         </a>
 
@@ -688,9 +702,31 @@ onBeforeUnmount(() => {
               :class="['drawer__nav-button', { 'is-active': activeNav === item.id }]"
               @click="scrollToSection(item.id)"
             >
+              <span class="topbar__nav-icon" aria-hidden="true">
+                <svg v-if="item.id === 'home'" viewBox="0 0 24 24" fill="none"><path d="M4 10.5L12 4L20 10.5" /><path d="M6.5 9.5V19H17.5V9.5" /></svg>
+                <svg v-else-if="item.id === 'catalog'" viewBox="0 0 24 24" fill="none"><path d="M5 6.5C5 5.4 5.9 4.5 7 4.5H19V17.5H7C5.9 17.5 5 18.4 5 19.5" /><path d="M7 4.5C5.9 4.5 5 5.4 5 6.5V19.5" /></svg>
+                <svg v-else-if="item.id === 'filters'" viewBox="0 0 24 24" fill="none"><path d="M4 6H20" /><path d="M7 12H17" /><path d="M10 18H14" /></svg>
+                <svg v-else-if="item.id === 'distribution'" viewBox="0 0 24 24" fill="none"><path d="M5 19V11" /><path d="M12 19V7" /><path d="M19 19V4" /></svg>
+                <svg v-else viewBox="0 0 24 24" fill="none"><path d="M12 8V12" /><path d="M12 16H12.01" /><path d="M10.29 3.86L1.82 18A2 2 0 0 0 3.53 21H20.47A2 2 0 0 0 22.18 18L13.71 3.86A2 2 0 0 0 10.29 3.86Z" /></svg>
+              </span>
               {{ item.label }}
             </button>
           </nav>
+
+          <div class="drawer__theme">
+            <p class="sidebar__eyebrow">Theme Color</p>
+            <div class="drawer__theme-list">
+              <button
+                v-for="option in themeOptions"
+                :key="option.value"
+                type="button"
+                :class="['chip-button', { 'is-active': theme === option.value }]"
+                @click="setTheme(option.value)"
+              >
+                {{ option.label }}
+              </button>
+            </div>
+          </div>
 
           <a
             class="button button--ghost button--block"
@@ -698,6 +734,10 @@ onBeforeUnmount(() => {
             target="_blank"
             rel="noreferrer noopener"
           >
+            <svg class="button__icon" viewBox="0 0 24 24" fill="none">
+              <path d="M9 19C4 20.5 4 16.5 2 16" />
+              <path d="M15 22V18.13C15.04 17.62 14.97 17.11 14.79 16.63C14.61 16.15 14.32 15.72 13.94 15.37C17.72 14.95 21.69 13.52 21.69 6.95C21.69 5.27 21.09 3.82 20.11 2.68C20.58 1.39 20.55 -0.01 20.03 -1.28C20.03 -1.28 18.79 -1.7 15 0.92C12.59 0.27 10.05 0.27 7.64 0.92C3.85 -1.7 2.61 -1.28 2.61 -1.28C2.09 -0.01 2.06 1.39 2.53 2.68C1.55 3.82 0.95 5.27 0.95 6.95C0.95 13.51 4.91 14.95 8.69 15.37C8.31 15.72 8.02 16.15 7.84 16.63C7.66 17.11 7.59 17.62 7.63 18.13V22" transform="translate(1 1.5) scale(0.88)" />
+            </svg>
             Open repository
           </a>
         </aside>
@@ -720,12 +760,10 @@ onBeforeUnmount(() => {
 
         <div class="overview-card__actions">
           <button class="button button--primary" type="button" @click="scrollToSection('catalog')">
-            <svg class="button__icon" viewBox="0 0 24 24" fill="none"><path d="M5 6.5C5 5.4 5.9 4.5 7 4.5H19V17.5H7C5.9 17.5 5 18.4 5 19.5" /><path d="M7 4.5C5.9 4.5 5 5.4 5 6.5V19.5" /></svg>
             Browse catalog
           </button>
 
           <button class="button button--ghost" type="button" @click="scrollToSection('filters')">
-            <svg class="button__icon" viewBox="0 0 24 24" fill="none"><path d="M4 6H20" /><path d="M7 12H17" /><path d="M10 18H14" /></svg>
             Open filters
           </button>
         </div>
@@ -847,21 +885,6 @@ onBeforeUnmount(() => {
             </select>
           </label>
         </div>
-
-        <div class="sidebar__section">
-          <div class="sidebar__label">Theme</div>
-          <div class="sidebar__chips">
-            <button
-              v-for="option in themeOptions"
-              :key="option.value"
-              :class="['chip-button', { 'is-active': theme === option.value }]"
-              @click="setTheme(option.value)"
-            >
-              {{ option.label }}
-            </button>
-          </div>
-        </div>
-
         <div class="sidebar__section sidebar__actions">
           <button class="button button--ghost button--block" @click="resetFilters">Reset filters</button>
         </div>
@@ -987,6 +1010,48 @@ onBeforeUnmount(() => {
       </main>
     </div>
 
+    <transition name="fade">
+      <div v-if="themePanelOpen" class="theme-switcher__panel" role="dialog" aria-label="Theme Color">
+        <div class="theme-switcher__panel-head">
+          <strong>Theme Color</strong>
+          <button class="icon-button" type="button" aria-label="Close theme panel" @click="closeThemePanel">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M6 6L18 18" />
+              <path d="M18 6L6 18" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="theme-switcher__list">
+          <button
+            v-for="option in themeOptions"
+            :key="option.value"
+            type="button"
+            :class="['theme-switcher__option', { 'is-active': theme === option.value }]"
+            @click="setTheme(option.value)"
+          >
+            <span :class="['theme-switcher__swatch', `is-${option.value}`]" aria-hidden="true"></span>
+            {{ option.label }}
+          </button>
+        </div>
+      </div>
+    </transition>
+
+    <button
+      class="theme-switcher__button"
+      type="button"
+      aria-label="Theme Color"
+      @click="toggleThemePanel"
+    >
+      <svg viewBox="0 0 24 24" fill="none">
+        <path d="M12 3C7.03 3 3 7.03 3 12C3 15.87 5.46 19.17 8.9 20.39C9.52 20.61 10 20.08 10 19.43V17.5C10 16.67 10.67 16 11.5 16H14C17.87 16 21 12.87 21 9C21 5.69 18.31 3 15 3H12Z" />
+        <circle cx="8" cy="10" r="1" />
+        <circle cx="12" cy="7" r="1" />
+        <circle cx="16" cy="10" r="1" />
+      </svg>
+      <span>Theme Color</span>
+    </button>
+
     <button
       v-show="showBackToTop"
       class="back-to-top"
@@ -994,7 +1059,10 @@ onBeforeUnmount(() => {
       aria-label="Back to top"
       @click="goToTop"
     >
-      ↑
+      <svg viewBox="0 0 24 24" fill="none">
+        <path d="M12 19V5" />
+        <path d="M5 12L12 5L19 12" />
+      </svg>
     </button>
   </div>
 </template>
