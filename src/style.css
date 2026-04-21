@@ -441,6 +441,63 @@ polyline {
   margin-top: 22px;
 }
 
+.overview-card__bars {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.overview-bar {
+  display: grid;
+  gap: 8px;
+}
+
+.overview-bar__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.overview-bar__head span {
+  color: var(--text-soft);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-weight: 800;
+}
+
+.overview-bar__head strong {
+  font-size: 0.95rem;
+}
+
+.overview-bar__track {
+  height: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.overview-bar__fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+}
+
+.overview-bar__fill.is-working {
+  background: linear-gradient(90deg, rgba(113, 223, 157, 0.72), rgba(113, 223, 157, 1));
+}
+
+.overview-bar__fill.is-broken {
+  background: linear-gradient(90deg, rgba(255, 138, 163, 0.72), rgba(255, 138, 163, 1));
+}
+
+.overview-bar__fill.is-nsfw {
+  background: linear-gradient(90deg, rgba(124, 140, 255, 0.72), rgba(124, 140, 255, 1));
+}
+
 .overview-card__stats {
   position: relative;
   display: grid;
@@ -493,13 +550,23 @@ polyline {
 .info-banner {
   margin-top: 16px;
   padding: 16px 18px;
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
   gap: 16px;
 }
 
 .info-banner p {
   margin: 0;
+}
+
+.info-banner__main {
+  display: grid;
+  gap: 8px;
+}
+
+.info-banner__notices {
+  display: grid;
+  gap: 10px;
 }
 
 .info-banner__meta {
@@ -662,10 +729,6 @@ polyline {
   background: rgba(124, 140, 255, 0.2);
   border-color: rgba(124, 140, 255, 0.34);
   color: var(--text);
-}
-
-.sidebar__notice-stack {
-  gap: 10px;
 }
 
 .notice-card {
