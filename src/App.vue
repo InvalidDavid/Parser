@@ -425,8 +425,6 @@ onBeforeUnmount(() => {
             <button :class="['chip-button', { 'is-active': status === 'all' }]" @click="applyStatus('all')">All</button>
             <button :class="['chip-button', { 'is-active': status === 'working' }]" @click="applyStatus('working')">Working</button>
             <button :class="['chip-button', { 'is-active': status === 'broken' }]" @click="applyStatus('broken')">Broken</button>
-            <button :class="['chip-button', { 'is-active': status === 'blocked' }]" @click="applyStatus('blocked')">Blocked</button>
-            <button :class="['chip-button', { 'is-active': status === 'unknown' }]" @click="applyStatus('unknown')">Unknown</button>
           </div>
         </div>
 
@@ -467,24 +465,6 @@ onBeforeUnmount(() => {
               <option value="domains">Domain count</option>
             </select>
           </label>
-        </div>
-
-        <div class="sidebar__section sidebar__section--centered">
-          <div class="sidebar__label">Top locales</div>
-          <div class="sidebar__chips">
-            <span v-for="[code, count] in topLocales" :key="code" class="sidebar-chip">
-              {{ code.toUpperCase() }} · {{ formatNumber(count) }}
-            </span>
-          </div>
-        </div>
-
-        <div class="sidebar__section sidebar__section--centered">
-          <div class="sidebar__label">Top content types</div>
-          <div class="sidebar__chips">
-            <span v-for="[type, count] in topTypes" :key="type" class="sidebar-chip">
-              {{ type }} · {{ formatNumber(count) }}
-            </span>
-          </div>
         </div>
 
         <div class="sidebar__section sidebar__warning">
