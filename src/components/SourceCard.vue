@@ -8,6 +8,25 @@ const props = defineProps<{
   compact?: boolean
 }>()
 
+function formatContentType(value?: string) {
+  const normalized = (value ?? 'MANGA').trim().toUpperCase()
+
+  switch (normalized) {
+    case 'MANGA':
+      return 'Manga'
+    case 'MANHWA':
+      return 'Manhwa'
+    case 'MANHUA':
+      return 'Manhua'
+    case 'COMICS':
+      return 'Comics'
+    case 'NOVEL':
+      return 'Novel'
+    default:
+      return normalized.charAt(0) + normalized.slice(1).toLowerCase()
+  }
+}
+
 const websiteUrl = computed(() => {
   const domain = props.source.domains[0]
   return domain ? `https://${domain}` : null
@@ -26,7 +45,7 @@ const displayLanguage = computed(() => {
 })
 
 const contentTypeLabel = computed(() => {
-  return props.source.contentType ?? 'MANGA'
+  return formatContentType(props.source.contentType)
 })
 
 const brokenReason = computed(() => {
