@@ -13,7 +13,7 @@ const error = ref<string | null>(null)
 const rawQuery = ref('')
 const query = ref('')
 
-const status = ref<'all' | 'working' | 'blocked'>('all')
+const status = ref<'all' | 'working' | 'broken'>('all')
 const language = ref('all')
 const contentType = ref('all')
 const nsfw = ref<'all' | 'safe' | 'nsfw'>('all')
@@ -477,53 +477,6 @@ watch(totalPages, (nextTotal) => {
 
 watch([rawQuery, status, language, contentType, nsfw, sort, view, page, perPage], updateUrlParams)
 
-const qualityScore = computed(() => {
-  const total = dataset.value.summary.total || dataset.value.sources.length
-  if (!total) return 0
-  return Math.round((dataset.value.summary.working / total) * 100)
-})
-
-const brokenShare = computed(() => {
-  const total = dataset.value.summary.total || dataset.value.sources.length
-  if (!total) return 0
-  return Math.round((dataset.value.summary.broken / total) * 100)
-})
-
-const updatedRelative = computed(() => {
-  const value = dataset.value.generatedAt
-  if (!value) return ''
-
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return ''
-
-  const diffMs = date.getTime() - Date.now()
-  const diffMinutes = Math.round(diffMs / 60000)
-  const rtf = new Intl.RelativeTimeFormat('de', { numeric: 'auto' })
-
-  if (Math.abs(diffMinutes) < 60) return rtf.format(diffMinutes, 'minute')
-
-  const diffHours = Math.round(diffMinutes / 60)
-  if (Math.abs(diffHours) < 24) return rtf.format(diffHours, 'hour')
-
-  const diffDays = Math.round(diffHours / 24)
-  return rtf.format(diffDays, 'day')
-})
-
-const overviewFacts = computed(() => [
-  { label: 'Generated', value: formatDate(dataset.value.generatedAt) },
-  { label: 'Healthy share', value: `${qualityScore.value}%` },
-  { label: 'Broken share', value: `${brokenShare.value}%` },
-  { label: 'Upstream', value: `${dataset.value.sourceRepo.owner}/${dataset.value.sourceRepo.repo}` },
-  { label: 'Builder', value: dataset.value.generatedBy === 'scripts/build_catalog.py' ? 'scripts/build_catalog' : dataset.value.generatedBy ?? 'Static bundle', isLink: dataset.value.generatedBy === 'scripts/build_catalog.py', href: 'https://github.com/Usagi-App/Parser/blob/main/scripts/build_catalog.py' },
-  { label: 'Entries', value: formatNumber(dataset.value.summary.total || dataset.value.sources.length) },
-  { label: 'Total sources', value: formatNumber(dataset.value.summary.total || dataset.value.sources.length), hint: 'Unique parser entries extracted from upstream source files' },
-  { label: 'Available', value: formatNumber(dataset.value.summary.working), hint: 'Not marked broken upstream' },
-  { label: 'Broken', value: formatNumber(dataset.value.summary.broken), hint: 'Explicitly flagged as broken upstream' },
-  { label: 'NSFW', value: formatNumber(dataset.value.summary.nsfw ?? 0), hint: 'Entries tagged as adult / explicit' },
-])
-
-
-
 const overviewBars = computed(() => {
   const total = dataset.value.summary.total || dataset.value.sources.length || 1
 
@@ -534,7 +487,7 @@ const overviewBars = computed(() => {
   ]
 })
 
-function applyStatus(next: 'all' | 'working' | 'blocked') {
+function applyStatus(next: 'all' | 'working' | 'broken') {
   status.value = next
 }
 
@@ -718,8 +671,12 @@ onBeforeUnmount(() => {
             Open filters
           </button>
         </div>
+      </div>
 
-        <div class="overview-card__bars" aria-label="Catalog summary bars">
+      <div class="overview-card__stats overview-card__stats--bars">
+        <div class="overview-card__decor" :style="parallaxStyle" aria-hidden="true"></div>
+
+        <div class="overview-card__bars overview-card__bars--panel" aria-label="Catalog summary bars">
           <article
             v-for="bar in overviewBars"
             :key="bar.label"
@@ -736,32 +693,19 @@ onBeforeUnmount(() => {
           </article>
         </div>
       </div>
-
-      <div class="overview-card__stats">
-        <div class="overview-card__decor" :style="parallaxStyle" aria-hidden="true"></div>
-
-        <article
-          v-for="item in overviewFacts"
-          :key="item.label"
-          class="overview-stat"
-        >
-          <span>{{ item.label }}</span>
-          <a
-            v-if="item.isLink"
-            class="meta-link"
-            :href="item.href"
-            target="_blank"
-            rel="noreferrer noopener"
-          >
-            {{ item.value }}
-          </a>
-          <strong v-else>{{ item.value }}</strong>
-          <small v-if="item.hint">{{ item.hint }}</small>
-        </article>
-      </div>
     </section>
 
     <section class="info-banner card" id="notices">
+      <div class="info-banner__main">
+        <p>{{ dataset.disclaimer }}</p>
+
+        <p v-if="dataset.duplicatesSkipped?.length" class="info-banner__meta">
+          Duplicate parser keys skipped: {{ dataset.duplicatesSkipped.join(', ') }}
+        </p>
+
+        <p v-if="error" class="info-banner__error">Live dataset failed to load: {{ error }}</p>
+      </div>
+
       <div class="info-banner__notices">
         <article
           v-for="notice in sidebarNotices"
@@ -803,7 +747,7 @@ onBeforeUnmount(() => {
           <div class="sidebar__chips">
             <button :class="['chip-button', { 'is-active': status === 'all' }]" @click="applyStatus('all')">All</button>
             <button :class="['chip-button', { 'is-active': status === 'working' }]" @click="applyStatus('working')">Working</button>
-            <button :class="['chip-button', { 'is-active': status === 'blocked' }]" @click="applyStatus('blocked')">Blocked</button>
+            <button :class="['chip-button', { 'is-active': status === 'broken' }]" @click="applyStatus('broken')">Broken</button>
           </div>
         </div>
 
