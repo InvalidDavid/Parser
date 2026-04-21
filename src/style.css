@@ -103,6 +103,31 @@ polyline {
   stroke-linejoin: round;
 }
 
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 120;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: #0f1217;
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+}
+
+.skip-link:focus {
+  left: max(16px, env(safe-area-inset-left, 0px));
+  top: max(16px, env(safe-area-inset-top, 0px));
+}
+
 .page-anchor,
 #catalog,
 #filters,
@@ -134,14 +159,20 @@ polyline {
 
 .topbar {
   position: sticky;
-  top: 14px;
+  top: max(14px, env(safe-area-inset-top, 0px));
   z-index: 30;
   display: grid;
   grid-template-columns: auto 1fr auto;
   gap: 16px;
   align-items: center;
-  padding: 12px 14px;
+  padding: max(12px, env(safe-area-inset-top, 0px)) 14px 12px;
   background: rgba(16, 19, 23, 0.96);
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+
+.topbar--scrolled {
+  background: rgba(16, 19, 23, 0.72);
+  border-color: rgba(255, 255, 255, 0.1);
 }
 
 .topbar__brand {
@@ -273,7 +304,7 @@ polyline {
   right: 0;
   width: min(82vw, 320px);
   height: 100%;
-  padding: 18px;
+  padding: max(18px, env(safe-area-inset-top, 0px)) 18px max(18px, env(safe-area-inset-bottom, 0px));
   background: #12161c;
   border-left: 1px solid var(--border);
   box-shadow: -12px 0 40px rgba(0, 0, 0, 0.28);
@@ -406,6 +437,12 @@ polyline {
   margin: 16px 0 0;
   color: var(--text-muted);
   font-size: 1rem;
+}
+
+.hero__meta {
+  margin: 12px 0 0;
+  color: var(--text-soft);
+  font-size: 0.94rem;
 }
 
 .hero__actions {
@@ -694,7 +731,7 @@ polyline {
 }
 
 .chip-button {
-  min-height: 34px;
+  min-height: 40px;
   padding: 0 12px;
   border-radius: var(--radius-pill);
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -922,6 +959,11 @@ polyline {
   contain: content;
 }
 
+.source-card:target {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .source-card--compact {
   gap: 12px;
   padding: 15px 16px;
@@ -957,6 +999,7 @@ polyline {
   color: var(--text-muted);
   overflow-wrap: anywhere;
   word-break: break-word;
+  line-height: 1.4;
 }
 
 .source-card__path,
@@ -1097,6 +1140,20 @@ polyline {
   opacity: 0.92;
 }
 
+.back-to-top {
+  position: fixed;
+  right: max(14px, env(safe-area-inset-right, 0px));
+  bottom: max(14px, env(safe-area-inset-bottom, 0px));
+  z-index: 50;
+  width: 46px;
+  height: 46px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(16, 19, 23, 0.94);
+  color: var(--text);
+  box-shadow: var(--shadow);
+}
+
 @keyframes shimmer {
   to {
     transform: translateX(100%);
@@ -1221,7 +1278,7 @@ polyline {
 
 @media (max-width: 430px) {
   .topbar {
-    padding: 10px 12px;
+    padding: max(10px, env(safe-area-inset-top, 0px)) 12px 10px;
     gap: 10px;
     border-radius: 18px;
   }
@@ -1255,5 +1312,10 @@ polyline {
   .field--inline {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .back-to-top {
+    width: 42px;
+    height: 42px;
   }
 }
