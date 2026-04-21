@@ -762,16 +762,6 @@ onBeforeUnmount(() => {
     </section>
 
     <section class="info-banner card" id="notices">
-      <div class="info-banner__main">
-        <p>{{ dataset.disclaimer }}</p>
-
-        <p v-if="dataset.duplicatesSkipped?.length" class="info-banner__meta">
-          Duplicate parser keys skipped: {{ dataset.duplicatesSkipped.join(', ') }}
-        </p>
-
-        <p v-if="error" class="info-banner__error">Live dataset failed to load: {{ error }}</p>
-      </div>
-
       <div class="info-banner__notices">
         <article
           v-for="notice in sidebarNotices"
