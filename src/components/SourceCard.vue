@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import type { SourceItem } from '@/types'
 import StatusPill from './StatusPill.vue'
 
@@ -7,6 +7,9 @@ const props = defineProps<{
   source: SourceItem
   compact?: boolean
 }>()
+
+const copied = ref(false)
+let copiedTimer: number | undefined
 
 function formatContentType(value?: string) {
   const normalized = (value ?? 'MANGA').trim().toUpperCase()
@@ -51,15 +54,28 @@ const contentTypeLabel = computed(() => {
 const brokenReason = computed(() => {
   return props.source.brokenReason || props.source.health.reason
 })
+
+async function copyLink() {
+  const url = `${window.location.origin}${window.location.pathname}#src-${props.source.key}`
+
+  try {
+    await navigator.clipboard.writeText(url)
+    copied.value = true
+    window.clearTimeout(copiedTimer)
+    copiedTimer = window.setTimeout(() => {
+      copied.value = false
+    }, 1500)
+  } catch {}
+}
 </script>
 
 <template>
-  <article :class="['source-card', { 'source-card--compact': compact }]">
+  <article :id="`src-${source.key}`" :class="['source-card', { 'source-card--compact': compact }]">
     <div class="source-card__top">
       <div class="source-card__title-wrap">
         <p class="source-card__eyebrow">{{ contentTypeLabel }}</p>
         <h3>{{ source.title }}</h3>
-        <p class="source-card__path">{{ source.path }}</p>
+        <p v-if="!compact" class="source-card__path">{{ source.path }}</p>
       </div>
 
       <div class="source-card__badges">
@@ -75,7 +91,7 @@ const brokenReason = computed(() => {
       <span>{{ source.domains.length }} domain<span v-if="source.domains.length !== 1">s</span></span>
     </div>
 
-    <p v-if="brokenReason" class="source-card__reason">
+    <p v-if="brokenReason && !compact" class="source-card__reason">
       {{ brokenReason }}
     </p>
 
@@ -108,6 +124,7 @@ const brokenReason = computed(() => {
         </a>
 
         <a
+          v-if="!compact"
           class="button button--ghost button--small"
           :href="source.rawUrl"
           target="_blank"
@@ -115,6 +132,15 @@ const brokenReason = computed(() => {
         >
           Raw
         </a>
+
+        <button
+          v-if="!compact"
+          class="button button--ghost button--small"
+          type="button"
+          @click="copyLink"
+        >
+          {{ copied ? 'Copied' : 'Copy link' }}
+        </button>
       </div>
     </div>
   </article>
