@@ -50,13 +50,6 @@ const sidebarNotices = [
     body:
       'This website lists source metadata for reference and discovery. No reader application is provided here, and no source content is hosted, cached, or proxied by this website.',
   },
-  {
-    id: 'third-party-websites',
-    variant: 'warning' as const,
-    title: 'Third-party websites',
-    body:
-      'Website buttons open external domains run by other parties. Availability, redirects, ads, and content are outside your control.',
-  },
 ]
 
 const skeletonCardCount = [1, 2, 3, 4, 5, 6]
