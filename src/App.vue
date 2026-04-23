@@ -1,5 +1,12 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  watch,
+} from "vue";
 import SourceCard from "@/components/SourceCard.vue";
 
 import {
@@ -15,6 +22,7 @@ const shellEl = ref<HTMLElement | null>(null);
 const topbarEl = ref<HTMLElement | null>(null);
 const topbarSlotEl = ref<HTMLElement | null>(null);
 const layoutEl = ref<HTMLElement | null>(null);
+const bottomPagerEl = ref<HTMLElement | null>(null);
 
 const dataset = ref<SourceDataset>(sampleData);
 const loading = ref(true);
@@ -378,7 +386,9 @@ function updateUrlParams() {
   setOrDelete("page", String(page.value), "1");
   setOrDelete("perPage", String(perPage.value), "50");
 
-  const next = `${window.location.pathname}${params.toString() ? `?${params}` : ""}${window.location.hash}`;
+  const next = `${window.location.pathname}${
+    params.toString() ? `?${params}` : ""
+  }${window.location.hash}`;
   window.history.replaceState({}, "", next);
 }
 
@@ -440,13 +450,13 @@ function hydrateFromUrl() {
   }
 }
 
-function commitPageInput() {
+function commitPageInput(mode: "default" | "stick-bottom" = "default") {
   const next = Number(pageInput.value);
   if (!Number.isFinite(next) || next < 1) {
     pageInput.value = String(page.value);
     return;
   }
-  goToPage(next);
+  void goToPage(next, mode);
 }
 
 function animateOverviewBars() {
@@ -505,18 +515,9 @@ const statusOptions = computed<
     label: string;
   }>
 >(() => [
-  {
-    value: "all",
-    label: "All",
-  },
-  {
-    value: "working",
-    label: "Working",
-  },
-  {
-    value: "broken",
-    label: "Broken",
-  },
+  { value: "all", label: "All" },
+  { value: "working", label: "Working" },
+  { value: "broken", label: "Broken" },
 ]);
 
 const languageOptions = computed(() => {
@@ -689,8 +690,32 @@ function resetFilters() {
   perPage.value = 50;
 }
 
-function goToPage(next: number) {
-  page.value = Math.min(Math.max(1, next), totalPages.value);
+async function goToPage(
+  next: number,
+  mode: "default" | "stick-bottom" = "default",
+) {
+  const targetPage = Math.min(Math.max(1, next), totalPages.value);
+
+  if (targetPage === page.value) {
+    if (mode === "stick-bottom") {
+      await nextTick();
+      bottomPagerEl.value?.scrollIntoView({
+        block: "end",
+        behavior: "smooth",
+      });
+    }
+    return;
+  }
+
+  page.value = targetPage;
+
+  if (mode === "stick-bottom") {
+    await nextTick();
+    bottomPagerEl.value?.scrollIntoView({
+      block: "end",
+      behavior: "smooth",
+    });
+  }
 }
 
 onMounted(async () => {
@@ -978,10 +1003,15 @@ onBeforeUnmount(() => {
                 type="button"
                 :class="[
                   'chip-button',
+                  'drawer__theme-chip',
                   { 'is-active': theme === option.value },
                 ]"
                 @click="setTheme(option.value)"
               >
+                <span
+                  :class="['theme-switcher__swatch', `is-${option.value}`]"
+                  aria-hidden="true"
+                ></span>
                 {{ option.label }}
               </button>
             </div>
@@ -1211,6 +1241,7 @@ onBeforeUnmount(() => {
             </select>
           </label>
         </div>
+
         <div class="sidebar__section sidebar__actions">
           <button
             class="button button--ghost button--block sidebar__reset-button"
@@ -1299,8 +1330,8 @@ onBeforeUnmount(() => {
                 min="1"
                 :max="totalPages"
                 inputmode="numeric"
-                @change="commitPageInput"
-                @keyup.enter="commitPageInput"
+                @change="commitPageInput()"
+                @keyup.enter="commitPageInput()"
               />
               <span class="pagination__status"
                 >/ {{ formatNumber(totalPages) }}</span
@@ -1390,13 +1421,14 @@ onBeforeUnmount(() => {
 
         <section
           v-if="!loading && paginatedSources.length > 0"
+          ref="bottomPagerEl"
           class="pagination pagination--android pagination--bottom card"
         >
           <button
             class="button button--ghost button--small"
             :disabled="!canGoPrev"
             aria-label="Previous page"
-            @click="goToPage(page - 1)"
+            @click="goToPage(page - 1, 'stick-bottom')"
           >
             Prev
           </button>
@@ -1410,8 +1442,8 @@ onBeforeUnmount(() => {
               min="1"
               :max="totalPages"
               inputmode="numeric"
-              @change="commitPageInput"
-              @keyup.enter="commitPageInput"
+              @change="commitPageInput('stick-bottom')"
+              @keyup.enter="commitPageInput('stick-bottom')"
             />
             <span class="pagination__status"
               >/ {{ formatNumber(totalPages) }}</span
@@ -1422,7 +1454,7 @@ onBeforeUnmount(() => {
             class="button button--ghost button--small"
             :disabled="!canGoNext"
             aria-label="Next page"
-            @click="goToPage(page + 1)"
+            @click="goToPage(page + 1, 'stick-bottom')"
           >
             Next
           </button>
@@ -1458,8 +1490,7 @@ onBeforeUnmount(() => {
             :key="option.value"
             type="button"
             :class="[
-              'chip-button',
-              'drawer__theme-chip',
+              'theme-switcher__option',
               { 'is-active': theme === option.value },
             ]"
             @click="setTheme(option.value)"
