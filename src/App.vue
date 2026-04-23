@@ -2,9 +2,19 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import SourceCard from "@/components/SourceCard.vue";
 
+import {
+  parseDataset,
+  formatContentType,
+  getLanguageLabel,
+} from "@/lib/catalog";
 import { formatDate, formatNumber } from "@/lib/format";
 import { sampleData } from "@/sample-data";
 import type { SourceDataset, SourceItem, SourceStatus } from "@/types";
+
+const shellEl = ref<HTMLElement | null>(null);
+const topbarEl = ref<HTMLElement | null>(null);
+const topbarSlotEl = ref<HTMLElement | null>(null);
+const layoutEl = ref<HTMLElement | null>(null);
 
 const dataset = ref<SourceDataset>(sampleData);
 const loading = ref(true);
@@ -31,8 +41,15 @@ const parallaxY = ref(0);
 const activeNav = ref("home");
 const isScrolled = ref(false);
 const showBackToTop = ref(false);
-const isTopbarDocked = ref(false);
 const layoutNavPreference = ref<"filters" | "catalog">("catalog");
+
+const isTopbarPinned = ref(false);
+const isTopbarDocked = ref(false);
+const topbarHeight = ref(0);
+const topbarDockTop = ref(0);
+
+const animatedOverviewPercents = ref<number[]>([0, 0, 0]);
+const uiReady = ref(false);
 
 const VIEW_PREFS_KEY = "usagi.viewPrefs";
 const THEME_KEY = "usagi.theme";
@@ -60,11 +77,12 @@ const sidebarNotices = [
   },
 ];
 
-const theme = ref<"dark" | "crimson" | "forest">("dark");
+const theme = ref<"dark" | "crimson" | "forest" | "ocean">("dark");
 const themeOptions = [
   { value: "dark", label: "Dark" },
   { value: "crimson", label: "Crimson" },
   { value: "forest", label: "Forest" },
+  { value: "ocean", label: "Ocean" },
 ] as const;
 
 const updatedRelative = computed(() => {
@@ -89,29 +107,6 @@ const updatedRelative = computed(() => {
 
 const skeletonCardCount = [1, 2, 3, 4, 5, 6];
 
-const LANGUAGE_NAMES: Record<string, string> = {
-  en: "English",
-  de: "German",
-  ru: "Russian",
-  fr: "French",
-  es: "Spanish",
-  it: "Italian",
-  pt: "Portuguese",
-  tr: "Turkish",
-  vi: "Vietnamese",
-  id: "Indonesian",
-  th: "Thai",
-  ar: "Arabic",
-  pl: "Polish",
-  uk: "Ukrainian",
-  ja: "Japanese",
-  ko: "Korean",
-  zh: "Chinese",
-  be: "Belarusian",
-  cs: "Czech",
-  multi: "Multiple",
-};
-
 const statusOrder: Record<SourceStatus, number> = {
   working: 0,
   blocked: 1,
@@ -121,6 +116,7 @@ const statusOrder: Record<SourceStatus, number> = {
 
 let searchDebounce: number | undefined;
 let scrollFrame: number | undefined;
+let statsAnimationFrame: number | undefined;
 
 watch(rawQuery, (value) => {
   window.clearTimeout(searchDebounce);
@@ -144,77 +140,6 @@ watch(page, (value) => {
 
 watch([view, perPage], persistViewPrefs);
 watch(theme, persistTheme);
-
-function formatContentType(value?: string) {
-  const normalized = (value ?? "MANGA").trim().toUpperCase();
-
-  switch (normalized) {
-    case "MANGA":
-      return "Manga";
-    case "MANHWA":
-      return "Manhwa";
-    case "MANHUA":
-      return "Manhua";
-    case "COMICS":
-      return "Comics";
-    case "NOVEL":
-      return "Novel";
-    default:
-      return normalized.charAt(0) + normalized.slice(1).toLowerCase();
-  }
-}
-
-function getLanguageLabel(source: SourceItem) {
-  return (
-    source.languageName ||
-    LANGUAGE_NAMES[source.language] ||
-    source.language.toUpperCase()
-  );
-}
-
-function buildSearchText(source: SourceItem) {
-  return [
-    source.title,
-    source.key,
-    source.language,
-    getLanguageLabel(source),
-    source.engine ?? "",
-    source.contentType ?? "",
-    source.path,
-    source.brokenReason ?? "",
-    ...(source.domains ?? []),
-  ]
-    .join(" ")
-    .toLowerCase();
-}
-
-function withSearchText(source: SourceItem): SourceItem {
-  return {
-    ...source,
-    languageName: getLanguageLabel(source),
-    searchText: source.searchText || buildSearchText(source),
-  };
-}
-
-function normalizeDataset(next: SourceDataset): SourceDataset {
-  return {
-    ...next,
-    generatedBy: next.generatedBy ?? "Static bundle",
-    byLocale: next.byLocale ?? {},
-    byType: next.byType ?? {},
-    duplicatesSkipped: next.duplicatesSkipped ?? [],
-    summary: {
-      ...next.summary,
-      nsfw:
-        next.summary.nsfw ??
-        next.sources.reduce(
-          (count, source) => count + (source.nsfw ? 1 : 0),
-          0,
-        ),
-    },
-    sources: next.sources.map(withSearchText),
-  };
-}
 
 function setView(next: "grid" | "list") {
   view.value = next;
@@ -245,23 +170,30 @@ function handleKeydown(event: KeyboardEvent) {
   }
 }
 
+function measureTopbar() {
+  if (!topbarEl.value) return;
+  topbarHeight.value = Math.ceil(topbarEl.value.offsetHeight);
+}
+
 function handleResize() {
   if (window.innerWidth <= 920) {
     themePanelOpen.value = false;
   } else {
     drawerOpen.value = false;
   }
+
+  measureTopbar();
   handleScroll();
 }
 
 function updateActiveNav() {
-  const topbar = document.querySelector(".topbar") as HTMLElement | null;
+  const topbar = topbarEl.value;
   const offset = (topbar?.offsetHeight ?? 0) + 28;
   const currentY = window.scrollY + offset;
 
   const distribution = document.getElementById("distribution");
   const notices = document.getElementById("notices");
-  const layout = document.querySelector(".layout") as HTMLElement | null;
+  const layout = layoutEl.value;
 
   if (distribution && currentY >= distribution.offsetTop) {
     activeNav.value = "distribution";
@@ -297,21 +229,34 @@ function handleScroll() {
 
   scrollFrame = window.requestAnimationFrame(() => {
     const y = window.scrollY;
-    const topbar = document.querySelector(".topbar") as HTMLElement | null;
-    const catalogToolbar = document.querySelector(
-      "#catalog .catalog-toolbar",
-    ) as HTMLElement | null;
 
-    const topbarHeight = topbar?.offsetHeight ?? 0;
-    const dockPoint =
-      catalogToolbar ?
-        Math.max(catalogToolbar.offsetTop - topbarHeight - 18, 0)
-      : Number.POSITIVE_INFINITY;
+    measureTopbar();
+
+    const slot = topbarSlotEl.value;
+    const shell = shellEl.value;
+    const layout = layoutEl.value;
+
+    if (slot && shell && layout && topbarHeight.value > 0) {
+      const slotTop = slot.getBoundingClientRect().top + y;
+      const shellTop = shell.getBoundingClientRect().top + y;
+      const layoutTop = layout.getBoundingClientRect().top + y;
+
+      const pinStart = Math.max(slotTop - 14, 0);
+      const dockAbsTop = layoutTop - topbarHeight.value - 16;
+      const dockTopInShell = Math.max(dockAbsTop - shellTop, 0);
+
+      isTopbarDocked.value = y >= dockAbsTop;
+      isTopbarPinned.value = y >= pinStart && !isTopbarDocked.value;
+      topbarDockTop.value = dockTopInShell;
+    } else {
+      isTopbarPinned.value = false;
+      isTopbarDocked.value = false;
+      topbarDockTop.value = 0;
+    }
 
     parallaxY.value = Math.min(y, 180);
     isScrolled.value = y > 10;
     showBackToTop.value = y > 420;
-    isTopbarDocked.value = false;
     updateActiveNav();
     scrollFrame = undefined;
   });
@@ -330,7 +275,7 @@ function scrollToSection(id: string) {
   }
 
   const element = document.getElementById(id);
-  const topbar = document.querySelector(".topbar") as HTMLElement | null;
+  const topbar = topbarEl.value;
   const offset = (topbar?.offsetHeight ?? 0) + 24;
 
   if (!element) return;
@@ -395,7 +340,12 @@ function persistTheme() {
 function hydrateTheme() {
   try {
     const raw = localStorage.getItem(THEME_KEY);
-    if (raw === "dark" || raw === "crimson" || raw === "forest") {
+    if (
+      raw === "dark" ||
+      raw === "crimson" ||
+      raw === "forest" ||
+      raw === "ocean"
+    ) {
       theme.value = raw;
     }
   } catch {
@@ -405,7 +355,7 @@ function hydrateTheme() {
   applyTheme();
 }
 
-function setTheme(next: "dark" | "crimson" | "forest") {
+function setTheme(next: "dark" | "crimson" | "forest" | "ocean") {
   theme.value = next;
   themePanelOpen.value = false;
 }
@@ -460,8 +410,9 @@ function hydrateFromUrl() {
 
   if (nextLang) language.value = nextLang;
   if (nextType) contentType.value = nextType;
-  if (nextNsfw === "all" || nextNsfw === "safe" || nextNsfw === "nsfw")
+  if (nextNsfw === "all" || nextNsfw === "safe" || nextNsfw === "nsfw") {
     nsfw.value = nextNsfw;
+  }
   if (
     nextSort === "title" ||
     nextSort === "language" ||
@@ -498,9 +449,75 @@ function commitPageInput() {
   goToPage(next);
 }
 
+function animateOverviewBars() {
+  if (statsAnimationFrame) {
+    window.cancelAnimationFrame(statsAnimationFrame);
+  }
+
+  const targets = overviewBars.value.map((bar) => bar.percent);
+  animatedOverviewPercents.value = targets.map(() => 0);
+
+  const duration = 1000;
+  const start = performance.now();
+
+  const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
+
+  const tick = (now: number) => {
+    const progress = Math.min((now - start) / duration, 1);
+    const eased = easeOutCubic(progress);
+
+    animatedOverviewPercents.value = targets.map((target) =>
+      Math.round(target * eased),
+    );
+
+    if (progress < 1) {
+      statsAnimationFrame = window.requestAnimationFrame(tick);
+    } else {
+      animatedOverviewPercents.value = [...targets];
+      statsAnimationFrame = undefined;
+    }
+  };
+
+  statsAnimationFrame = window.requestAnimationFrame(tick);
+}
+
+const topbarSlotStyle = computed(() => ({
+  height: topbarHeight.value ? `${topbarHeight.value}px` : undefined,
+}));
+
+const topbarInlineStyle = computed(() => {
+  if (isTopbarDocked.value) {
+    return {
+      top: `${topbarDockTop.value}px`,
+    };
+  }
+
+  return undefined;
+});
+
 const parallaxStyle = computed(() => ({
   transform: `translate3d(0, ${Math.round(parallaxY.value * 0.08)}px, 0)`,
 }));
+
+const statusOptions = computed<
+  Array<{
+    value: "all" | "working" | "broken";
+    label: string;
+  }>
+>(() => [
+  {
+    value: "all",
+    label: "All",
+  },
+  {
+    value: "working",
+    label: "Working",
+  },
+  {
+    value: "broken",
+    label: "Broken",
+  },
+]);
 
 const languageOptions = computed(() => {
   const counts = dataset.value.byLocale ?? {};
@@ -514,7 +531,7 @@ const languageOptions = computed(() => {
     return {
       value: code,
       count,
-      label: `${LANGUAGE_NAMES[code] || code.toUpperCase()} (${formatNumber(count)})`,
+      label: `${getLanguageLabel({ language: code })} (${formatNumber(count)})`,
     };
   });
 
@@ -613,36 +630,6 @@ const paginatedSources = computed<SourceItem[]>(() => {
 const canGoPrev = computed(() => page.value > 1);
 const canGoNext = computed(() => page.value < totalPages.value);
 
-const pageItems = computed<(number | string)[]>(() => {
-  const total = totalPages.value;
-  const current = page.value;
-
-  if (total <= 7) {
-    return Array.from({ length: total }, (_, index) => index + 1);
-  }
-
-  const items: (number | string)[] = [1];
-
-  const start = Math.max(2, current - 1);
-  const end = Math.min(total - 1, current + 1);
-
-  if (start > 2) {
-    items.push("start-ellipsis");
-  }
-
-  for (let i = start; i <= end; i += 1) {
-    items.push(i);
-  }
-
-  if (end < total - 1) {
-    items.push("end-ellipsis");
-  }
-
-  items.push(total);
-
-  return items;
-});
-
 watch(totalPages, (nextTotal) => {
   if (page.value > nextTotal) {
     page.value = nextTotal;
@@ -714,6 +701,8 @@ onMounted(async () => {
   window.addEventListener("scroll", handleScroll, { passive: true });
   window.addEventListener("keydown", handleKeydown);
   window.addEventListener("resize", handleResize);
+
+  measureTopbar();
   handleScroll();
 
   try {
@@ -728,17 +717,26 @@ onMounted(async () => {
       throw new Error(`Dataset request failed with ${response.status}`);
     }
 
-    const liveData = (await response.json()) as SourceDataset;
-    dataset.value = normalizeDataset(
-      liveData.sources.length > 0 ? liveData : sampleData,
-    );
+    const liveData = parseDataset(await response.json());
+
+    if (!liveData) {
+      throw new Error("Dataset JSON is invalid");
+    }
+
+    dataset.value = liveData.sources.length > 0 ? liveData : sampleData;
   } catch (reason) {
-    dataset.value = normalizeDataset(sampleData);
+    dataset.value = sampleData;
     error.value =
       reason instanceof Error ? reason.message : "Unknown data loading error";
   } finally {
     loading.value = false;
+    measureTopbar();
+    handleScroll();
     updateActiveNav();
+    animateOverviewBars();
+    window.requestAnimationFrame(() => {
+      uiReady.value = true;
+    });
   }
 });
 
@@ -752,130 +750,142 @@ onBeforeUnmount(() => {
     window.cancelAnimationFrame(scrollFrame);
   }
 
+  if (statsAnimationFrame) {
+    window.cancelAnimationFrame(statsAnimationFrame);
+  }
+
   document.body.style.overflow = "";
 });
 </script>
 
 <template>
-  <div class="shell">
+  <div ref="shellEl" :class="['shell', { 'ui-ready': uiReady }]">
     <a class="skip-link" href="#catalog">Skip to catalog</a>
     <div id="home" class="page-anchor"></div>
 
-    <header
-      :class="[
-        'topbar',
-        { 'topbar--scrolled': isScrolled, 'topbar--docked': isTopbarDocked },
-      ]"
-    >
-      <div class="topbar__brand">
-        <span class="topbar__brand-mark" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none">
-            <path
-              d="M4 6.5C4 5.4 4.9 4.5 6 4.5H18C19.1 4.5 20 5.4 20 6.5V17.5C20 18.6 19.1 19.5 18 19.5H6C4.9 19.5 4 18.6 4 17.5V6.5Z"
-            />
-            <path d="M8 4.5V19.5" />
-            <path d="M11 8.5H16" />
-            <path d="M11 12H16" />
-          </svg>
-        </span>
-
-        <div>
-          <p class="topbar__eyebrow">Parser source catalog</p>
-          <strong>Directory only</strong>
-        </div>
-      </div>
-
-      <nav class="topbar__nav" aria-label="Primary">
-        <button
-          v-for="item in navItems"
-          :key="item.id"
-          type="button"
-          :class="[
-            'topbar__nav-button',
-            { 'is-active': activeNav === item.id },
-          ]"
-          @click="scrollToSection(item.id)"
-        >
-          <span class="topbar__nav-icon" aria-hidden="true">
-            <svg v-if="item.id === 'home'" viewBox="0 0 24 24" fill="none">
-              <path d="M4 10.5L12 4L20 10.5" />
-              <path d="M6.5 9.5V19H17.5V9.5" />
-            </svg>
-            <svg
-              v-else-if="item.id === 'catalog'"
-              viewBox="0 0 24 24"
-              fill="none"
-            >
+    <div ref="topbarSlotEl" class="topbar-slot" :style="topbarSlotStyle">
+      <header
+        ref="topbarEl"
+        :class="[
+          'topbar',
+          {
+            'topbar--scrolled': isScrolled,
+            'topbar--pinned': isTopbarPinned,
+            'topbar--docked': isTopbarDocked,
+          },
+        ]"
+        :style="topbarInlineStyle"
+      >
+        <div class="topbar__brand">
+          <span class="topbar__brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
               <path
-                d="M5 6.5C5 5.4 5.9 4.5 7 4.5H19V17.5H7C5.9 17.5 5 18.4 5 19.5"
+                d="M4 6.5C4 5.4 4.9 4.5 6 4.5H18C19.1 4.5 20 5.4 20 6.5V17.5C20 18.6 19.1 19.5 18 19.5H6C4.9 19.5 4 18.6 4 17.5V6.5Z"
               />
-              <path d="M7 4.5C5.9 4.5 5 5.4 5 6.5V19.5" />
-            </svg>
-            <svg
-              v-else-if="item.id === 'filters'"
-              viewBox="0 0 24 24"
-              fill="none"
-            >
-              <path d="M4 6H20" />
-              <path d="M7 12H17" />
-              <path d="M10 18H14" />
-            </svg>
-            <svg
-              v-else-if="item.id === 'distribution'"
-              viewBox="0 0 24 24"
-              fill="none"
-            >
-              <path d="M5 19V11" />
-              <path d="M12 19V7" />
-              <path d="M19 19V4" />
-            </svg>
-            <svg v-else viewBox="0 0 24 24" fill="none">
-              <path d="M12 8V12" />
-              <path d="M12 16H12.01" />
-              <path
-                d="M10.29 3.86L1.82 18A2 2 0 0 0 3.53 21H20.47A2 2 0 0 0 22.18 18L13.71 3.86A2 2 0 0 0 10.29 3.86Z"
-              />
+              <path d="M8 4.5V19.5" />
+              <path d="M11 8.5H16" />
+              <path d="M11 12H16" />
             </svg>
           </span>
-          {{ item.label }}
-        </button>
-      </nav>
 
-      <div class="topbar__actions">
-        <a
-          class="button button--ghost"
-          href="https://github.com/Usagi-App/Parser"
-          target="_blank"
-          rel="noreferrer noopener"
-        >
-          <svg
-            class="button__icon button__icon--brand"
-            viewBox="0 0 24 24"
-            aria-hidden="true"
+          <div>
+            <p class="topbar__eyebrow">Parser source catalog</p>
+            <strong>Directory only</strong>
+          </div>
+        </div>
+
+        <nav class="topbar__nav" aria-label="Primary">
+          <button
+            v-for="item in navItems"
+            :key="item.id"
+            type="button"
+            :class="[
+              'topbar__nav-button',
+              { 'is-active': activeNav === item.id },
+            ]"
+            @click="scrollToSection(item.id)"
           >
-            <path
-              fill="currentColor"
-              stroke="none"
-              d="M12 2C6.48 2 2 6.58 2 12.22C2 16.73 4.87 20.56 8.84 21.91C9.34 22.01 9.52 21.69 9.52 21.42C9.52 21.18 9.51 20.39 9.5 19.55C6.73 20.17 6.14 18.34 6.14 18.34C5.68 17.13 5.03 16.81 5.03 16.81C4.12 16.17 5.1 16.18 5.1 16.18C6.11 16.25 6.64 17.24 6.64 17.24C7.54 18.84 9 18.38 9.57 18.11C9.66 17.44 9.92 16.98 10.2 16.72C7.99 16.46 5.67 15.58 5.67 11.65C5.67 10.53 6.06 9.61 6.71 8.89C6.61 8.63 6.26 7.58 6.81 6.16C6.81 6.16 7.65 5.89 9.5 7.18C10.3 6.95 11.15 6.83 12 6.83C12.85 6.83 13.7 6.95 14.5 7.18C16.35 5.89 17.19 6.16 17.19 6.16C17.74 7.58 17.39 8.63 17.29 8.89C17.94 9.61 18.33 10.53 18.33 11.65C18.33 15.59 16 16.46 13.79 16.71C14.14 17.02 14.46 17.63 14.46 18.57C14.46 19.91 14.45 20.99 14.45 21.42C14.45 21.69 14.63 22.02 15.14 21.91C19.11 20.56 22 16.73 22 12.22C22 6.58 17.52 2 12 2Z"
-            />
-          </svg>
-          Repo
-        </a>
+            <span class="topbar__nav-icon" aria-hidden="true">
+              <svg v-if="item.id === 'home'" viewBox="0 0 24 24" fill="none">
+                <path d="M4 10.5L12 4L20 10.5" />
+                <path d="M6.5 9.5V19H17.5V9.5" />
+              </svg>
+              <svg
+                v-else-if="item.id === 'catalog'"
+                viewBox="0 0 24 24"
+                fill="none"
+              >
+                <path
+                  d="M5 6.5C5 5.4 5.9 4.5 7 4.5H19V17.5H7C5.9 17.5 5 18.4 5 19.5"
+                />
+                <path d="M7 4.5C5.9 4.5 5 5.4 5 6.5V19.5" />
+              </svg>
+              <svg
+                v-else-if="item.id === 'filters'"
+                viewBox="0 0 24 24"
+                fill="none"
+              >
+                <path d="M4 6H20" />
+                <path d="M7 12H17" />
+                <path d="M10 18H14" />
+              </svg>
+              <svg
+                v-else-if="item.id === 'distribution'"
+                viewBox="0 0 24 24"
+                fill="none"
+              >
+                <path d="M5 19V11" />
+                <path d="M12 19V7" />
+                <path d="M19 19V4" />
+              </svg>
+              <svg v-else viewBox="0 0 24 24" fill="none">
+                <path d="M12 8V12" />
+                <path d="M12 16H12.01" />
+                <path
+                  d="M10.29 3.86L1.82 18A2 2 0 0 0 3.53 21H20.47A2 2 0 0 0 22.18 18L13.71 3.86A2 2 0 0 0 10.29 3.86Z"
+                />
+              </svg>
+            </span>
+            {{ item.label }}
+          </button>
+        </nav>
 
-        <button
-          class="icon-button topbar__menu"
-          type="button"
-          aria-label="Open navigation drawer"
-          @click="openDrawer"
-        >
-          <svg viewBox="0 0 24 24" fill="none">
-            <path d="M4 7H20" />
-            <path d="M4 12H20" />
-            <path d="M4 17H14" />
-          </svg>
-        </button>
-      </div>
-    </header>
+        <div class="topbar__actions">
+          <a
+            class="button button--ghost topbar__repo-button"
+            href="https://github.com/Usagi-App/Parser"
+            target="_blank"
+            rel="noreferrer noopener"
+          >
+            <svg
+              class="button__icon button__icon--brand"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path
+                fill="currentColor"
+                stroke="none"
+                d="M12 2C6.48 2 2 6.58 2 12.22C2 16.73 4.87 20.56 8.84 21.91C9.34 22.01 9.52 21.69 9.52 21.42C9.52 21.18 9.51 20.39 9.5 19.55C6.73 20.17 6.14 18.34 6.14 18.34C5.68 17.13 5.03 16.81 5.03 16.81C4.12 16.17 5.1 16.18 5.1 16.18C6.11 16.25 6.64 17.24 6.64 17.24C7.54 18.84 9 18.38 9.57 18.11C9.66 17.44 9.92 16.98 10.2 16.72C7.99 16.46 5.67 15.58 5.67 11.65C5.67 10.53 6.06 9.61 6.71 8.89C6.61 8.63 6.26 7.58 6.81 6.16C6.81 6.16 7.65 5.89 9.5 7.18C10.3 6.95 11.15 6.83 12 6.83C12.85 6.83 13.7 6.95 14.5 7.18C16.35 5.89 17.19 6.16 17.19 6.16C17.74 7.58 17.39 8.63 17.29 8.89C17.94 9.61 18.33 10.53 18.33 11.65C18.33 15.59 16 16.46 13.79 16.71C14.14 17.02 14.46 17.63 14.46 18.57C14.46 19.91 14.45 20.99 14.45 21.42C14.45 21.69 14.63 22.02 15.14 21.91C19.11 20.56 22 16.73 22 12.22C22 6.58 17.52 2 12 2Z"
+              />
+            </svg>
+            Repo
+          </a>
+
+          <button
+            class="icon-button topbar__menu"
+            type="button"
+            aria-label="Open navigation drawer"
+            @click="openDrawer"
+          >
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M4 7H20" />
+              <path d="M4 12H20" />
+              <path d="M4 17H14" />
+            </svg>
+          </button>
+        </div>
+      </header>
+    </div>
 
     <transition name="fade">
       <div v-if="drawerOpen" class="drawer">
@@ -978,7 +988,7 @@ onBeforeUnmount(() => {
           </div>
 
           <a
-            class="button button--ghost button--block"
+            class="button button--ghost topbar__repo-button"
             href="https://github.com/Usagi-App/Parser"
             target="_blank"
             rel="noreferrer noopener"
@@ -1002,9 +1012,9 @@ onBeforeUnmount(() => {
 
     <section class="overview-card card" id="distribution">
       <div class="overview-card__copy">
-        <p class="hero__eyebrow">Vue / Vite catalog</p>
+        <p class="hero__eyebrow">Parser catalog</p>
         <h1 class="overview-card__title">
-          Clean parser directory with faster search and lighter rendering
+          Search like google, but for parsers
         </h1>
 
         <p class="overview-card__text">
@@ -1047,6 +1057,18 @@ onBeforeUnmount(() => {
           class="overview-card__bars overview-card__bars--panel"
           aria-label="Catalog summary bars"
         >
+          <div class="overview-panel__header">
+            <div>
+              <p class="overview-panel__eyebrow">Live overview</p>
+              <h3 class="overview-panel__title">Source health snapshot</h3>
+            </div>
+
+            <div class="overview-panel__total">
+              <span>Total</span>
+              <strong>{{ formatNumber(dataset.summary.total) }}</strong>
+            </div>
+          </div>
+
           <article
             v-for="(bar, index) in overviewBars"
             :key="bar.label"
@@ -1054,22 +1076,23 @@ onBeforeUnmount(() => {
           >
             <div class="overview-bar__head">
               <span>{{ bar.label }}</span>
-              <strong>{{ bar.percent }}%</strong>
+              <strong
+                >{{ animatedOverviewPercents[index] ?? bar.percent }}%</strong
+              >
             </div>
 
             <div class="overview-bar__track">
               <span
                 :class="['overview-bar__fill', `is-${bar.tone}`]"
                 :style="{
-                  width: `${bar.percent}%`,
-                  '--bar-delay': `${index * 120}ms`,
+                  width: `${animatedOverviewPercents[index] ?? bar.percent}%`,
                 }"
               ></span>
             </div>
 
-            <small class="overview-bar__meta">{{
-              formatNumber(bar.value)
-            }}</small>
+            <small class="overview-bar__meta">
+              {{ formatNumber(bar.value) }} sources
+            </small>
           </article>
         </div>
       </div>
@@ -1088,7 +1111,7 @@ onBeforeUnmount(() => {
       </div>
     </section>
 
-    <div class="layout">
+    <div ref="layoutEl" class="layout">
       <aside class="sidebar card" id="filters">
         <div class="sidebar__section">
           <div class="sidebar__section-head">
@@ -1116,22 +1139,13 @@ onBeforeUnmount(() => {
 
           <div class="sidebar__chips">
             <button
-              :class="['chip-button', { 'is-active': status === 'all' }]"
-              @click="applyStatus('all')"
+              v-for="option in statusOptions"
+              :key="option.value"
+              type="button"
+              :class="['chip-button', { 'is-active': status === option.value }]"
+              @click="applyStatus(option.value)"
             >
-              All
-            </button>
-            <button
-              :class="['chip-button', { 'is-active': status === 'working' }]"
-              @click="applyStatus('working')"
-            >
-              Working
-            </button>
-            <button
-              :class="['chip-button', { 'is-active': status === 'broken' }]"
-              @click="applyStatus('broken')"
-            >
-              Broken
+              {{ option.label }}
             </button>
           </div>
         </div>
@@ -1199,9 +1213,20 @@ onBeforeUnmount(() => {
         </div>
         <div class="sidebar__section sidebar__actions">
           <button
-            class="button button--ghost button--block"
+            class="button button--ghost button--block sidebar__reset-button"
             @click="resetFilters"
           >
+            <svg
+              class="button__icon"
+              viewBox="0 0 512 512"
+              aria-hidden="true"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                fill="currentColor"
+                d="M64,256H34A222,222,0,0,1,430,118.15V85h30V190H355V160h67.27A192.21,192.21,0,0,0,256,64C150.13,64,64,150.13,64,256Zm384,0c0,105.87-86.13,192-192,192A192.21,192.21,0,0,1,89.73,352H157V322H52V427H82V393.85A222,222,0,0,0,478,256Z"
+              />
+            </svg>
             Reset filters
           </button>
         </div>
@@ -1293,6 +1318,15 @@ onBeforeUnmount(() => {
           </div>
         </section>
 
+        <section v-if="error" class="info-banner card">
+          <div class="info-banner__notices">
+            <article class="notice-card notice-card--warning">
+              <strong>Using bundled fallback data</strong>
+              <p>{{ error }}</p>
+            </article>
+          </div>
+        </section>
+
         <section v-if="loading" class="loading-shell">
           <div class="catalog-toolbar card skeleton-toolbar"></div>
 
@@ -1326,6 +1360,23 @@ onBeforeUnmount(() => {
           <p>
             Reset the filters or broaden the search to repopulate the catalog.
           </p>
+          <button
+            class="button button--ghost button--block sidebar__reset-button"
+            @click="resetFilters"
+          >
+            <svg
+              class="button__icon"
+              viewBox="0 0 512 512"
+              aria-hidden="true"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                fill="currentColor"
+                d="M64,256H34A222,222,0,0,1,430,118.15V85h30V190H355V160h67.27A192.21,192.21,0,0,0,256,64C150.13,64,64,150.13,64,256Zm384,0c0,105.87-86.13,192-192,192A192.21,192.21,0,0,1,89.73,352H157V322H52V427H82V393.85A222,222,0,0,0,478,256Z"
+              />
+            </svg>
+            Reset filters
+          </button>
         </section>
 
         <section v-else :class="['sources', `sources--${view}`]">
@@ -1339,7 +1390,7 @@ onBeforeUnmount(() => {
 
         <section
           v-if="!loading && paginatedSources.length > 0"
-          class="pagination pagination--pages card"
+          class="pagination pagination--android pagination--bottom card"
         >
           <button
             class="button button--ghost button--small"
@@ -1350,24 +1401,21 @@ onBeforeUnmount(() => {
             Prev
           </button>
 
-          <div class="pagination__pages">
-            <template v-for="item in pageItems" :key="String(item)">
-              <span v-if="typeof item !== 'number'" class="pagination__ellipsis"
-                >…</span
-              >
-
-              <button
-                v-else
-                type="button"
-                :class="[
-                  'pagination__page-button',
-                  { 'is-active': page === item },
-                ]"
-                @click="goToPage(item)"
-              >
-                {{ item }}
-              </button>
-            </template>
+          <div class="pagination__center">
+            <span class="pagination__label">Page</span>
+            <input
+              v-model="pageInput"
+              class="pagination__input"
+              type="number"
+              min="1"
+              :max="totalPages"
+              inputmode="numeric"
+              @change="commitPageInput"
+              @keyup.enter="commitPageInput"
+            />
+            <span class="pagination__status"
+              >/ {{ formatNumber(totalPages) }}</span
+            >
           </div>
 
           <button
@@ -1410,7 +1458,8 @@ onBeforeUnmount(() => {
             :key="option.value"
             type="button"
             :class="[
-              'theme-switcher__option',
+              'chip-button',
+              'drawer__theme-chip',
               { 'is-active': theme === option.value },
             ]"
             @click="setTheme(option.value)"
