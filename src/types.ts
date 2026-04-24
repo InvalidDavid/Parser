@@ -1,4 +1,13 @@
 export type SourceStatus = "working" | "broken" | "blocked" | "unknown";
+export type SourceStageStatus = SourceStatus | "skipped";
+
+export interface StageHealthCheck {
+  status: SourceStageStatus;
+  reason: string;
+  latencyMs?: number | null;
+  count?: number | null;
+  details?: string | null;
+}
 
 export interface HealthCheck {
   status: SourceStatus;
@@ -6,7 +15,15 @@ export interface HealthCheck {
   latencyMs?: number | null;
   httpStatus?: number | null;
   finalUrl?: string | null;
+  resultCount?: number | null;
   reason: string | null;
+  details?: string | null;
+  checks?: Partial<
+    Record<
+      "list" | "search" | "details" | "chapters" | "images",
+      StageHealthCheck
+    >
+  >;
 }
 
 export interface SourceItem {
@@ -21,7 +38,6 @@ export interface SourceItem {
   rawUrl: string;
   domains: string[];
   health: HealthCheck;
-
   contentType?: string | null;
   brokenReason?: string | null;
   nsfw?: boolean;
