@@ -1,8 +1,6 @@
 name: Build and deploy catalog
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
   schedule:
     - cron: "13 2 * * *"
@@ -18,10 +16,10 @@ env:
   PARSER_RUNTIME_GRADLE: "gradle"
   PARSER_RUNTIME_DIR: "tools/parser-checker"
 
-  # Faster CI settings
-  PARSER_CHECKER_WORKERS: "16"
-  PARSER_CHECKER_TIMEOUT_MS: "20000"
-  PARSER_CHECKER_RATE_DELAY_MS: "120"
+  # Safer public CI settings
+  PARSER_CHECKER_WORKERS: "8"
+  PARSER_CHECKER_TIMEOUT_MS: "15000"
+  PARSER_CHECKER_RATE_DELAY_MS: "250"
   PARSER_CHECKER_RETRIES: "0"
   PARSER_CHECKER_BACKOFF_MS: "300"
 
