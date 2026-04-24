@@ -24,15 +24,20 @@ on:
         default: "public/data/sources.json"
         type: string
 
+concurrency:
+  group: build-catalog-${{ github.ref }}
+  cancel-in-progress: false
+
 env:
   PARSER_RUNTIME_ENABLED: "1"
   PARSER_RUNTIME_GRADLE: "gradle"
   PARSER_RUNTIME_DIR: "tools/parser-checker"
-  PARSER_CHECKER_WORKERS: "4"
-  PARSER_CHECKER_TIMEOUT_MS: "75000"
-  PARSER_CHECKER_RATE_DELAY_MS: "450"
-  PARSER_CHECKER_RETRIES: "2"
-  PARSER_CHECKER_BACKOFF_MS: "800"
+
+  PARSER_CHECKER_WORKERS: "16"
+  PARSER_CHECKER_TIMEOUT_MS: "20000"
+  PARSER_CHECKER_RATE_DELAY_MS: "120"
+  PARSER_CHECKER_RETRIES: "0"
+  PARSER_CHECKER_BACKOFF_MS: "300"
 
 permissions:
   contents: write
@@ -40,11 +45,13 @@ permissions:
 jobs:
   build-catalog:
     runs-on: ubuntu-latest
-    timeout-minutes: 360
+    timeout-minutes: 90
 
     steps:
       - name: Check out website repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Check out parser source repository
         uses: actions/checkout@v4
@@ -94,13 +101,20 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
           git add ${{ inputs.output }}
+
           if git diff --cached --quiet; then
             echo "No changes to commit."
             exit 0
           fi
+
           git commit -m "chore: update parser catalog data"
-          git push
+
+          git fetch origin ${{ github.ref_name }}
+          git rebase origin/${{ github.ref_name }}
+
+          git push origin HEAD:${{ github.ref_name }}
 
       - name: Upload generated catalog artifact
         uses: actions/upload-artifact@v4
