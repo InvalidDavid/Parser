@@ -33,12 +33,11 @@ env:
   PARSER_RUNTIME_GRADLE: "gradle"
   PARSER_RUNTIME_DIR: "tools/parser-checker"
 
-  # Safer public CI settings
-  PARSER_CHECKER_WORKERS: "8"
-  PARSER_CHECKER_TIMEOUT_MS: "15000"
-  PARSER_CHECKER_RATE_DELAY_MS: "250"
+  PARSER_CHECKER_WORKERS: "12"
+  PARSER_CHECKER_TIMEOUT_MS: "12000"
+  PARSER_CHECKER_RATE_DELAY_MS: "25"
   PARSER_CHECKER_RETRIES: "0"
-  PARSER_CHECKER_BACKOFF_MS: "300"
+  PARSER_CHECKER_BACKOFF_MS: "100"
 
 permissions:
   contents: write
@@ -66,6 +65,12 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install Python dependencies
+        run: python3 -m pip install -r requirements.txt
+
+      - name: Verify Python dependencies
+        run: python3 -c "import sys, aiosqlite; print(sys.executable); print('aiosqlite ok:', aiosqlite.__version__)"
+
       - name: Set up Java 17
         uses: actions/setup-java@v5
         with:
@@ -91,11 +96,20 @@ jobs:
           --repo ${{ inputs.repo }}
           --branch ${{ inputs.branch }}
 
+      - name: Generate catalog SQLite
+        run: |
+          python3 -m pip install aiosqlite==0.21.0
+          python3 -c "import sys, aiosqlite; print(sys.executable); print('aiosqlite ok:', aiosqlite.__version__)"
+          python3 scripts/build_catalog_db.py \
+            --input ${{ inputs.output }} \
+            --output public/data/sources.sqlite
+
       - name: Show generated file info
         run: |
           ls -lh ${{ inputs.output }}
+          ls -lh public/data/sources.sqlite
           echo ""
-          echo "First 40 lines:"
+          echo "First 40 JSON lines:"
           head -n 40 ${{ inputs.output }}
 
       - name: Commit and push if changed
@@ -103,7 +117,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add ${{ inputs.output }}
+          git add ${{ inputs.output }} public/data/sources.sqlite
 
           if git diff --cached --quiet; then
             echo "No changes to commit."
@@ -121,4 +135,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: generated-catalog
-          path: ${{ inputs.output }}
+          path: |
+            ${{ inputs.output }}
+            public/data/sources.sqlite
