@@ -236,21 +236,39 @@ function handleScroll() {
     measureTopbar();
 
     const slot = topbarSlotEl.value;
-    const shell = shellEl.value;
-    const layout = layoutEl.value;
 
-    if (!isMobile && slot && shell && layout && topbarHeight.value > 0) {
+    if (slot && topbarHeight.value > 0) {
       const slotTop = slot.getBoundingClientRect().top + y;
-      const shellTop = shell.getBoundingClientRect().top + y;
-      const layoutTop = layout.getBoundingClientRect().top + y;
-
       const pinStart = Math.max(slotTop - 14, 0);
-      const dockAbsTop = layoutTop - topbarHeight.value - 16;
-      const dockTopInShell = Math.max(dockAbsTop - shellTop, 0);
 
-      isTopbarDocked.value = y >= dockAbsTop;
-      isTopbarPinned.value = y >= pinStart && !isTopbarDocked.value;
-      topbarDockTop.value = dockTopInShell;
+      if (isMobile) {
+        // Mobile: pin when scrolled past initial position, never dock.
+        // Once pinned, the topbar's exact offset is controlled by the
+        // topbar--pinned CSS (top: 14px with safe-area padding).
+        isTopbarPinned.value = y >= pinStart;
+        isTopbarDocked.value = false;
+        topbarDockTop.value = 0;
+      } else {
+        // Desktop: pin above the filter section, then dock above the
+        // catalog section when the user scrolls further.
+        const shell = shellEl.value;
+        const layout = layoutEl.value;
+
+        if (shell && layout) {
+          const shellTop = shell.getBoundingClientRect().top + y;
+          const layoutTop = layout.getBoundingClientRect().top + y;
+          const dockAbsTop = layoutTop - topbarHeight.value - 16;
+          const dockTopInShell = Math.max(dockAbsTop - shellTop, 0);
+
+          isTopbarDocked.value = y >= dockAbsTop;
+          isTopbarPinned.value = y >= pinStart && !isTopbarDocked.value;
+          topbarDockTop.value = dockTopInShell;
+        } else {
+          isTopbarPinned.value = y >= pinStart;
+          isTopbarDocked.value = false;
+          topbarDockTop.value = 0;
+        }
+      }
     } else {
       isTopbarPinned.value = false;
       isTopbarDocked.value = false;
